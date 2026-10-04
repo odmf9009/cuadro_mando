@@ -1,0 +1,32 @@
+{
+  "name": "cuadro-mando",
+  "version": "1.0.0",
+  "description": "Dashboard central que integra las metricas de todos los proyectos/apps propios",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev:api": "node --watch src/server.js",
+    "dev:client": "npm run dev --prefix client",
+    "install:client": "npm install --prefix client",
+    "build": "npm run build --prefix client",
+    "postinstall": "npm run install:client"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.14.0",
+    "bcryptjs": "^2.4.3",
+    "csv-parse": "^7.0.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "express-session": "^1.18.1",
+    "firebase-admin": "^14.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.10.0",
+    "nodemailer": "^10.0.12",
+    "pg": "^8.13.1"
+  }
+}
