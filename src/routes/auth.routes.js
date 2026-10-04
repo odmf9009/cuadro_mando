@@ -1,9 +1,21 @@
 const { Router } = require('express');
+const rateLimit = require('express-rate-limit');
 
 const router = Router();
 
 // API JSON consumida por el SPA de Vue (client/). No hay vistas server-side
 // aqui: el frontend decide que renderizar segun estas respuestas.
+
+// Limite de intentos de login: 10 intentos cada 15 min por IP. No cambia la
+// contraseña (sigue siendo admin/admin a proposito), pero evita que un bot
+// la adivine por fuerza bruta una vez el dashboard sea publico.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'Demasiados intentos. Espera unos minutos y vuelve a intentar.' },
+});
 
 router.get('/api/auth/me', (req, res) => {
   if (req.session && req.session.isAdmin) {
@@ -12,7 +24,7 @@ router.get('/api/auth/me', (req, res) => {
   res.json({ authenticated: false });
 });
 
-router.post('/api/auth/login', (req, res) => {
+router.post('/api/auth/login', loginLimiter, (req, res) => {
   const { username, password } = req.body || {};
   const adminUser = process.env.ADMIN_USER || 'admin';
   const adminPass = process.env.ADMIN_PASS || 'admin';
