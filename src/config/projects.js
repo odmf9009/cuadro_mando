@@ -40,6 +40,13 @@
 //   metodo si user[field] === equals. Sirve para proyectos que mezclan
 //   usuarios de Firebase y de contraseña propia (ej. FixRadar).
 //
+// segments (opcional): tarjetas clicables en el detalle del proyecto que
+// filtran la pestaña Usuarios (ej. Clientes vs Profesionales). Siempre se
+// agrega automaticamente una tarjeta mas para los que no tienen el campo
+// definido (unclassifiedLabel, por defecto "Sin definir").
+//   field   -> nombre del campo en Mongo (ej. 'userType')
+//   options -> [{ value, label }], uno por tarjeta/segmento real
+//
 // store (opcional): identificadores para las metricas de Google Play / App
 // Store (ver connectors/stores/*.js). androidPackageName y iosBundleId salen
 // del propio codigo del proyecto (build.gradle / Info.plist), ya estan
@@ -125,6 +132,7 @@ module.exports = [
         { value: 'client', label: 'Clientes' },
         { value: 'technician', label: 'Profesionales' },
       ],
+      unclassifiedLabel: 'Sin roles',
     },
     capabilities: { activeUsers: true, subscriptions: false, platforms: false },
     // FixRadar mezcla usuarios de Firebase (Google) y de contraseña propia.

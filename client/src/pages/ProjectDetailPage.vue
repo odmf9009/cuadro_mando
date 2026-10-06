@@ -27,9 +27,6 @@
           :to="`/project/${project.id}/users?segment=${seg.value}`"
         />
       </section>
-      <p v-if="stats.segments?.unclassified" class="muted small segments-note">
-        + {{ stats.segments.unclassified.toLocaleString('es') }} usuarios sin tipo definido (no terminaron el registro)
-      </p>
 
       <section class="panel-grid">
         <BaseCard title="Nuevos usuarios (últimos 30 días)">
@@ -142,8 +139,5 @@ const appleStoreMessage = computed(() => storeMessage(storeStats.value?.apple))
 .users-link {
   margin-bottom: 1.5rem;
   display: inline-block;
-}
-.segments-note {
-  margin: -0.8rem 0 1.5rem;
 }
 </style>

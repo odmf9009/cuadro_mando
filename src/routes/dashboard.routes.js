@@ -1,7 +1,12 @@
 const { Router } = require('express');
 const projects = require('../config/projects');
 const { getAllProjectStats, getProjectStats } = require('../connectors');
-const { listUsers, findUserById, setUserPasswordHash } = require('../connectors/mongoConnector');
+const {
+  listUsers,
+  findUserById,
+  setUserPasswordHash,
+  UNCLASSIFIED_SEGMENT,
+} = require('../connectors/mongoConnector');
 const { generatePasswordResetLink } = require('../connectors/firebaseAdmin');
 const { generateTempPassword, hashPassword } = require('../services/passwordGenerator');
 const { sendMail, isConfigured: mailerConfigured } = require('../services/mailer');
@@ -23,7 +28,17 @@ function toSafeProject(project) {
     capabilities: project.capabilities,
     hasUsersTab: project.type === 'mongo',
     hasStoreMetrics: Boolean(project.store),
-    segments: project.segments ? { options: project.segments.options } : null,
+    segments: project.segments
+      ? {
+          options: [
+            ...project.segments.options,
+            {
+              value: UNCLASSIFIED_SEGMENT,
+              label: project.segments.unclassifiedLabel || 'Sin definir',
+            },
+          ],
+        }
+      : null,
   };
 }
 

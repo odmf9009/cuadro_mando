@@ -29,9 +29,14 @@ function buildDailySeries(rows, since, until) {
   return series;
 }
 
-// Conteo por segmento + cuantos no tienen el campo definido (sin tipo).
+// Valor especial para "no tiene el campo definido" (ej. no termino el
+// onboarding). Se trata como un segmento mas: tiene su propia tarjeta,
+// cuenta y es filtrable igual que "client"/"technician".
+const UNCLASSIFIED_SEGMENT = '__unclassified__';
+
+// Conteo por cada segmento declarado + el de "sin definir".
 async function countSegments(col, project) {
-  const { field, options } = project.segments;
+  const { field, options, unclassifiedLabel } = project.segments;
   const items = await Promise.all(
     options.map(async (o) => ({
       value: o.value,
@@ -39,10 +44,12 @@ async function countSegments(col, project) {
       count: await col.countDocuments({ [field]: o.value }),
     }))
   );
-  const unclassified = await col.countDocuments({
-    [field]: { $in: [null, ''] },
+  items.push({
+    value: UNCLASSIFIED_SEGMENT,
+    label: unclassifiedLabel || 'Sin definir',
+    count: await col.countDocuments({ [field]: { $in: [null, ''] } }),
   });
-  return { items, unclassified };
+  return { items };
 }
 
 async function getMongoProjectStats(project) {
@@ -138,16 +145,21 @@ function toId(project, rawId) {
   return fields.idIsString ? rawId : new ObjectId(rawId);
 }
 
-// Lista usuarios para la pantalla de administracion (buscar por email/nombre
-// y accionar sobre uno). Nunca proyecta campos de contraseña/tokens.
 // Filtro de segmento (ej. clientes vs profesionales). Solo acepta valores
-// declarados en project.segments.options -> nunca se inyecta un filtro libre.
+// declarados en project.segments.options (+ el especial "sin definir") ->
+// nunca se inyecta un filtro libre.
 function segmentFilter(project, segment) {
   if (!segment || !project.segments) return {};
+  if (segment === UNCLASSIFIED_SEGMENT) {
+    return { [project.segments.field]: { $in: [null, ''] } };
+  }
   const allowed = project.segments.options.map((o) => o.value);
   if (!allowed.includes(segment)) throw new Error('Segmento no valido');
   return { [project.segments.field]: segment };
 }
+
+// Lista usuarios para la pantalla de administracion (buscar por email/nombre
+// y accionar sobre uno). Nunca proyecta campos de contraseña/tokens.
 
 async function listUsers(project, { search = '', page = 1, pageSize = 25, segment = '' } = {}) {
   const col = await getCollection(project);
@@ -209,4 +221,10 @@ async function setUserPasswordHash(project, userId, fieldName, hash) {
   if (result.matchedCount === 0) throw new Error('Usuario no encontrado');
 }
 
-module.exports = { getMongoProjectStats, listUsers, findUserById, setUserPasswordHash };
+module.exports = {
+  getMongoProjectStats,
+  listUsers,
+  findUserById,
+  setUserPasswordHash,
+  UNCLASSIFIED_SEGMENT,
+};
