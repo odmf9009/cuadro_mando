@@ -149,7 +149,7 @@ module.exports = [
     store: {
       androidPackageName: 'com.venturesflstudio.fixradar',
       iosBundleId: 'com.venturesflstudio.fixRadar',
-      appleAppId: null,
+      appleAppId: 6782331585,
     },
   },
   {

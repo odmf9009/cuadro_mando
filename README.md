@@ -187,10 +187,12 @@ servicio → Generar nueva clave privada) y reemplazar el archivo en
 
 ## Instalaciones desde Google Play / App Store
 
-Implementado usando los mecanismos oficiales estables de cada tienda — pero
-**sin credenciales todavía**, así que hoy cada tarjeta muestra el motivo en
-vez de un número. Nada de esto rompe la página si falla: los errores se
-capturan por proyecto.
+Implementado usando los mecanismos oficiales estables de cada tienda. Nada
+de esto rompe la página si falla: los errores se capturan por proyecto.
+
+**App Store ya está activo para FixRadar** (la única app publicada por
+ahora) — credenciales reales probadas contra la API. Google Play sigue sin
+credenciales (cada tarjeta muestra el motivo en vez de un número).
 
 - **Google Play** (`src/connectors/stores/googlePlayReports.js`): Google no
   tiene una API REST simple de "instalaciones totales por app". El mecanismo
@@ -214,12 +216,17 @@ capturan por proyecto.
   2. En `.env`: `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_ID`,
      `APP_STORE_CONNECT_PRIVATE_KEY_PATH` (ruta al `.p8`) y
      `APP_STORE_CONNECT_VENDOR_NUMBER` (en *Agreements, Tax, and Banking*).
-  3. Los reportes diarios se publican con ~24-48h de atraso.
+  3. El conector pide el reporte **mensual** (no diario): con pocas
+     descargas, un reporte de un solo día casi siempre da 0 porque Apple ni
+     genera el archivo si no hubo actividad ese día. Si el mes en curso
+     todavía no tiene datos, cae automáticamente al mes anterior.
 
 Los identificadores de cada app (`androidPackageName`/`iosBundleId`) ya están
-puestos en `src/config/projects.js` (los saqué del propio código de cada
-proyecto). Falta `appleAppId` (el ID numérico de App Store Connect, no el
-bundle id) — se copia a mano desde ahí cuando lo necesites.
+puestos en `src/config/projects.js`. `appleAppId` (el ID numérico de App
+Store Connect) ya está completo para **FixRadar** (`6782331585`); para
+CurbRadar/Habanera queda en `null` hasta que se publiquen — la misma API Key
+(es una "clave de equipo", cubre todas las apps de la cuenta) sirve para
+activarlas sin generar nada nuevo.
 
 **Importante:** de tus apps, solo **Invoice Snap** vende algo dentro de la
 app (`in_app_purchase` en su `pubspec.yaml`). Habanera, CurbRadar, FixRadar y

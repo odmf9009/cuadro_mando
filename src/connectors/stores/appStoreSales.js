@@ -38,15 +38,18 @@ function buildToken() {
   });
 }
 
-// reportDate en formato YYYY-MM-DD (reporte diario) o YYYY-MM (mensual).
-async function fetchDailySalesReport(reportDate) {
+// frequency: 'DAILY' (reportDate = YYYY-MM-DD) | 'MONTHLY' (reportDate = YYYY-MM).
+// Un reporte DIARIO de una app con pocas descargas da 0 casi siempre (Apple
+// ni genera el archivo si no hubo actividad ese dia) -> getAppSalesSummary
+// usa MONTHLY por defecto, que es un numero mucho mas representativo.
+async function fetchSalesReport(frequency, reportDate) {
   if (!isConfigured()) {
     return { supported: false, reason: 'Faltan credenciales de App Store Connect en .env' };
   }
 
   const token = buildToken();
   const params = new URLSearchParams({
-    'filter[frequency]': 'DAILY',
+    'filter[frequency]': frequency,
     'filter[reportType]': 'SALES',
     'filter[reportSubType]': 'SUMMARY',
     'filter[vendorNumber]': process.env.APP_STORE_CONNECT_VENDOR_NUMBER,
@@ -58,9 +61,9 @@ async function fetchDailySalesReport(reportDate) {
   });
 
   if (res.status === 404) {
-    // Apple devuelve 404 cuando todavia no hay reporte para esa fecha
-    // (los reportes diarios tardan ~24-48h en publicarse).
-    return { supported: true, rows: [], note: `Sin reporte publicado todavia para ${reportDate}` };
+    // Apple devuelve 404 cuando no hay NADA que reportar en ese periodo
+    // (cero transacciones), no necesariamente porque falte publicar.
+    return { supported: true, rows: [], note: `Sin actividad reportada para ${reportDate}` };
   }
   if (!res.ok) {
     throw new Error(`App Store Connect respondio ${res.status}: ${await res.text()}`);
@@ -72,21 +75,37 @@ async function fetchDailySalesReport(reportDate) {
   return { supported: true, rows };
 }
 
-// Filtra el reporte (todas las apps del vendor) por un SKU/Apple ID concreto
-// y resume unidades e ingresos. bundleIdOrAppleId es lo que se guarde en
-// project.store.appleAppId (Apple ID numerico de la app en App Store Connect).
-async function getAppSalesSummary(project, reportDate) {
+function sumAppRows(rows, appleAppId) {
+  const appRows = (rows || []).filter((r) => r['Apple Identifier'] === String(appleAppId));
+  const units = appRows.reduce((sum, r) => sum + Number(r['Units'] || 0), 0);
+  // "Developer Proceeds" es el monto POR UNIDAD de esa fila (no el total).
+  const proceeds = appRows.reduce((sum, r) => sum + Number(r['Developer Proceeds'] || 0) * Number(r['Units'] || 0), 0);
+  return { units, proceeds };
+}
+
+function monthsAgo(n) {
+  const d = new Date();
+  d.setUTCDate(1); // evita que un mes mas corto desplace el mes al restar
+  d.setUTCMonth(d.getUTCMonth() - n);
+  return d.toISOString().slice(0, 7); // YYYY-MM
+}
+
+// Descargas/ingresos del mes. Si el mes actual todavia no tiene reporte
+// (recien empezo, o la app no tuvo actividad este mes) cae al mes anterior,
+// para no mostrar "0" solo por mala suerte de fecha.
+async function getAppSalesSummary(project) {
   const appleAppId = project.store && project.store.appleAppId;
   if (!appleAppId) return { supported: false, reason: 'Este proyecto no tiene appleAppId configurado' };
 
-  const { supported, reason, rows, note } = await fetchDailySalesReport(reportDate);
-  if (!supported) return { supported: false, reason };
+  for (const month of [monthsAgo(0), monthsAgo(1)]) {
+    const { supported, reason, rows } = await fetchSalesReport('MONTHLY', month);
+    if (!supported) return { supported: false, reason };
+    if (rows.length) {
+      return { supported: true, month, ...sumAppRows(rows, appleAppId) };
+    }
+  }
 
-  const appRows = (rows || []).filter((r) => r['Apple Identifier'] === String(appleAppId));
-  const units = appRows.reduce((sum, r) => sum + Number(r['Units'] || 0), 0);
-  const proceeds = appRows.reduce((sum, r) => sum + Number(r['Developer Proceeds'] || 0) * Number(r['Units'] || 0), 0);
-
-  return { supported: true, reportDate, units, proceeds, note: note || null };
+  return { supported: true, month: monthsAgo(0), units: 0, proceeds: 0, note: 'Sin descargas en los últimos dos meses' };
 }
 
-module.exports = { isConfigured, fetchDailySalesReport, getAppSalesSummary };
+module.exports = { isConfigured, fetchSalesReport, getAppSalesSummary };

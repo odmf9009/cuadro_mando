@@ -76,7 +76,7 @@
 
         <BaseCard v-if="storeStats" title="App Store">
           <template v-if="storeStats.apple.supported && storeStats.apple.units != null">
-            <p class="big-number">{{ storeStats.apple.units.toLocaleString('es') }} <span class="muted small">unidades ({{ storeStats.apple.reportDate }})</span></p>
+            <p class="big-number">{{ storeStats.apple.units.toLocaleString('es') }} <span class="muted small">descargas ({{ storeStats.apple.month }})</span></p>
             <p class="muted small">Proceeds del desarrollador: ${{ storeStats.apple.proceeds.toFixed(2) }}</p>
           </template>
           <p v-else class="muted small">{{ appleStoreMessage }}</p>

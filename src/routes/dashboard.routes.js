@@ -78,13 +78,10 @@ function summarize(statsByProject) {
 async function getStoreStats(project) {
   if (!project.store) return null;
 
-  const today = new Date();
-  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-  const reportDate = yesterday.toISOString().slice(0, 10); // YYYY-MM-DD
-  const month = today.toISOString().slice(0, 7).replace('-', ''); // YYYYMM
+  const month = new Date().toISOString().slice(0, 7).replace('-', ''); // YYYYMM
 
   const [appleResult, googleResult] = await Promise.allSettled([
-    appStoreSales.getAppSalesSummary(project, reportDate),
+    appStoreSales.getAppSalesSummary(project),
     googlePlayReports.getInstallsOverview(project, month),
   ]);
 
