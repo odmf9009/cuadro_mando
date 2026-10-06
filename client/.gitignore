@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Trae binarios nativos (rollup/rolldown) atados a la arquitectura donde se
+# genero -> un lockfile hecho en Mac ARM rompe "npm install" en el servidor
+# Linux x64 (y viceversa). Cada maquina genera el suyo con "npm install".
+package-lock.json
