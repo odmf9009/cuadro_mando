@@ -23,6 +23,7 @@ function toSafeProject(project) {
     capabilities: project.capabilities,
     hasUsersTab: project.type === 'mongo',
     hasStoreMetrics: Boolean(project.store),
+    segments: project.segments ? { options: project.segments.options } : null,
   };
 }
 
@@ -129,9 +130,10 @@ router.get('/projects/:id/users', async (req, res) => {
 
   const page = Math.max(1, Number(req.query.page) || 1);
   const search = (req.query.q || '').trim();
+  const segment = (req.query.segment || '').trim();
 
   try {
-    const { total, pageSize, users } = await listUsers(project, { page, search });
+    const { total, pageSize, users } = await listUsers(project, { page, search, segment });
     const usersWithFlags = users.map((u) => ({ ...u, resetMethod: resetMethodFor(project, u) }));
 
     res.json({

@@ -117,6 +117,15 @@ module.exports = [
       onlineLabel: 'En linea ahora',
       idIsString: true, // _id = Firebase UID o UUID propio, no ObjectId
     },
+    // Segmentos de usuarios: tarjetas con conteo + filtro en la pestaña Usuarios.
+    // Los que tienen el campo vacio (no terminaron el onboarding) se cuentan aparte.
+    segments: {
+      field: 'userType',
+      options: [
+        { value: 'client', label: 'Clientes' },
+        { value: 'technician', label: 'Profesionales' },
+      ],
+    },
     capabilities: { activeUsers: true, subscriptions: false, platforms: false },
     // FixRadar mezcla usuarios de Firebase (Google) y de contraseña propia.
     auth: {

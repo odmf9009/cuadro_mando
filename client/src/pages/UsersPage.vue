@@ -23,6 +23,11 @@
     </AlertBanner>
 
     <template v-if="!connectionError">
+      <div v-if="activeSegmentLabel" class="segment-chip">
+        Mostrando: <strong>{{ activeSegmentLabel }}</strong>
+        <RouterLink :to="`/project/${id}/users`" class="segment-chip-clear">✕ quitar filtro</RouterLink>
+      </div>
+
       <form class="search-bar" @submit.prevent="() => load(1)">
         <BaseInput v-model="search" placeholder="Buscar por nombre o email..." />
         <BaseButton type="submit">Buscar</BaseButton>
@@ -61,7 +66,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppLayout from '../components/layout/AppLayout.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseTable from '../components/base/BaseTable.vue'
@@ -75,6 +81,7 @@ import { useConfirm } from '../composables/useConfirm'
 
 const props = defineProps({ id: { type: String, required: true } })
 const { confirmAction } = useConfirm()
+const route = useRoute()
 
 const projectsStore = useProjectsStore()
 const project = ref(null)
@@ -93,9 +100,15 @@ const columns = [
   { key: 'createdAt', label: 'Alta' },
 ]
 
+const activeSegmentLabel = computed(() => {
+  const value = route.query.segment
+  const opt = project.value?.segments?.options.find((o) => o.value === value)
+  return opt?.label || null
+})
+
 async function load(nextPage = 1) {
   page.value = nextPage
-  const data = await projectsApi.users(props.id, { page: nextPage, q: search.value })
+  const data = await projectsApi.users(props.id, { page: nextPage, q: search.value, segment: route.query.segment || '' })
   users.value = data.users
   total.value = data.total
   totalPages.value = data.totalPages
@@ -136,4 +149,10 @@ async function onSetTempPassword(user) {
 
 onMounted(init)
 watch(() => props.id, init)
+watch(
+  () => route.query.segment,
+  () => {
+    if (project.value) load(1)
+  }
+)
 </script>

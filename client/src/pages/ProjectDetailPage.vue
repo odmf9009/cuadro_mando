@@ -18,6 +18,19 @@
         <StatCard v-if="stats.onlineUsers != null" :label="stats.onlineLabel" :value="stats.onlineUsers" live />
       </section>
 
+      <section v-if="stats.segments" class="kpi-row">
+        <StatCard
+          v-for="seg in stats.segments.items"
+          :key="seg.value"
+          :label="seg.label"
+          :value="seg.count"
+          :to="`/project/${project.id}/users?segment=${seg.value}`"
+        />
+      </section>
+      <p v-if="stats.segments?.unclassified" class="muted small segments-note">
+        + {{ stats.segments.unclassified.toLocaleString('es') }} usuarios sin tipo definido (no terminaron el registro)
+      </p>
+
       <section class="panel-grid">
         <BaseCard title="Nuevos usuarios (últimos 30 días)">
           <LineChart v-if="stats.chartSeries?.length" :series="stats.chartSeries" :color="project.color" />
@@ -129,5 +142,8 @@ const appleStoreMessage = computed(() => storeMessage(storeStats.value?.apple))
 .users-link {
   margin-bottom: 1.5rem;
   display: inline-block;
+}
+.segments-note {
+  margin: -0.8rem 0 1.5rem;
 }
 </style>

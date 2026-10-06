@@ -29,6 +29,22 @@ function buildDailySeries(rows, since, until) {
   return series;
 }
 
+// Conteo por segmento + cuantos no tienen el campo definido (sin tipo).
+async function countSegments(col, project) {
+  const { field, options } = project.segments;
+  const items = await Promise.all(
+    options.map(async (o) => ({
+      value: o.value,
+      label: o.label,
+      count: await col.countDocuments({ [field]: o.value }),
+    }))
+  );
+  const unclassified = await col.countDocuments({
+    [field]: { $in: [null, ''] },
+  });
+  return { items, unclassified };
+}
+
 async function getMongoProjectStats(project) {
   const uri = process.env[project.envVar];
   if (!uri) {
@@ -100,6 +116,7 @@ async function getMongoProjectStats(project) {
       chartSeries,
       subscriptions: null,
       platforms: null,
+      segments: project.segments ? await countSegments(col, project) : null,
     };
   } catch (err) {
     return { connected: false, error: err.message };
@@ -123,7 +140,16 @@ function toId(project, rawId) {
 
 // Lista usuarios para la pantalla de administracion (buscar por email/nombre
 // y accionar sobre uno). Nunca proyecta campos de contraseña/tokens.
-async function listUsers(project, { search = '', page = 1, pageSize = 25 } = {}) {
+// Filtro de segmento (ej. clientes vs profesionales). Solo acepta valores
+// declarados en project.segments.options -> nunca se inyecta un filtro libre.
+function segmentFilter(project, segment) {
+  if (!segment || !project.segments) return {};
+  const allowed = project.segments.options.map((o) => o.value);
+  if (!allowed.includes(segment)) throw new Error('Segmento no valido');
+  return { [project.segments.field]: segment };
+}
+
+async function listUsers(project, { search = '', page = 1, pageSize = 25, segment = '' } = {}) {
   const col = await getCollection(project);
   const fields = project.fields || {};
   const createdAtField = fields.createdAtField || 'createdAt';
@@ -136,7 +162,7 @@ async function listUsers(project, { search = '', page = 1, pageSize = 25 } = {})
     fcmToken: 0,
   };
 
-  const filter = search
+  const searchFilter = search
     ? {
         $or: [
           { email: { $regex: search, $options: 'i' } },
@@ -145,6 +171,7 @@ async function listUsers(project, { search = '', page = 1, pageSize = 25 } = {})
         ],
       }
     : {};
+  const filter = { ...searchFilter, ...segmentFilter(project, segment) };
 
   const sort = fields.noTimestamps ? { _id: -1 } : { [createdAtField]: -1 };
 
