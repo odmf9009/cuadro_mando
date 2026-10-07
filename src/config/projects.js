@@ -2,7 +2,8 @@
 // que vive en la carpeta mios/. Agregar un proyecto nuevo = agregar un objeto
 // aqui (mas la variable de entorno correspondiente en .env).
 //
-// type: 'mongo' | 'postgres'
+// type: 'mongo' | 'postgres' | 'none' ('none' = app sin backend/BD propia,
+// solo tiene sentido con un bloque "store" para metricas de tienda)
 // envVar: nombre de la variable de entorno con la cadena de conexion
 // color: acento visual de la tarjeta (ver public/css/styles.css)
 //
@@ -76,14 +77,22 @@ module.exports = [
     },
   },
   {
-    id: 'fitapp',
-    name: 'FitApp',
-    description: 'Plan de entrenamiento y nutricion',
-    type: 'mongo',
-    envVar: 'FITAPP_MONGO_URI',
+    // Sin backend propio: la app solo consume la API de YouTube y links de
+    // afiliados del lado del cliente (Amazon, Home Depot) -> no hay usuarios
+    // ni base de datos que trackear, type:'none' (ver connectors/index.js).
+    id: 'skillfix',
+    name: 'SkillFix',
+    description: 'Tutoriales de reparaciones DIY',
+    type: 'none',
     color: '#22c55e',
-    fields: { createdAtField: 'createdAt' },
     capabilities: { activeUsers: false, subscriptions: false, platforms: false },
+    store: {
+      androidPackageName: 'com.venturesflstudio.skillfix',
+      iosBundleId: 'com.venturesflstudio.skillfix',
+      // Apple ID real (6788056557), pero la app todavia esta
+      // WAITING_FOR_REVIEW -> sin datos de ventas hasta que se apruebe.
+      appleAppId: 6788056557,
+    },
   },
   {
     id: 'cubradar',

@@ -9,6 +9,16 @@
       <p class="muted small">Revisa la variable de entorno de este proyecto en tu archivo .env.</p>
     </AlertBanner>
 
+    <template v-else-if="stats && stats.noBackend">
+      <p class="muted small no-backend-note">
+        Esta app no tiene backend ni base de datos propia — no hay usuarios que trackear aquí, solo
+        métricas de tienda cuando estén disponibles.
+      </p>
+      <section v-if="storeStats" class="panel-grid">
+        <StoreMetricsCards :store-stats="storeStats" />
+      </section>
+    </template>
+
     <template v-else-if="stats">
       <section class="kpi-row">
         <StatCard label="Usuarios totales" :value="stats.totalUsers" />
@@ -66,21 +76,7 @@
           <p v-else class="muted small">Este proyecto no guarda montos de compra en su base de datos todavía.</p>
         </BaseCard>
 
-        <BaseCard v-if="storeStats" title="Google Play">
-          <template v-if="storeStats.google.supported && storeStats.google.totalInstalls != null">
-            <p class="big-number">{{ storeStats.google.totalInstalls.toLocaleString('es') }} <span class="muted small">instalaciones ({{ storeStats.google.month }})</span></p>
-            <p class="muted small">{{ storeStats.google.totalUninstalls.toLocaleString('es') }} desinstalaciones en el mismo periodo</p>
-          </template>
-          <p v-else class="muted small">{{ googleStoreMessage }}</p>
-        </BaseCard>
-
-        <BaseCard v-if="storeStats" title="App Store">
-          <template v-if="storeStats.apple.supported && storeStats.apple.units != null">
-            <p class="big-number">{{ storeStats.apple.units.toLocaleString('es') }} <span class="muted small">descargas ({{ storeStats.apple.month }})</span></p>
-            <p class="muted small">Proceeds del desarrollador: ${{ storeStats.apple.proceeds.toFixed(2) }}</p>
-          </template>
-          <p v-else class="muted small">{{ appleStoreMessage }}</p>
-        </BaseCard>
+        <StoreMetricsCards v-if="storeStats" :store-stats="storeStats" />
 
         <BaseCard v-if="project.hasApkDistribution" title="Distribución directa (APK)">
           <template v-if="apkInfo?.info">
@@ -123,6 +119,7 @@ import StatCard from '../components/base/StatCard.vue'
 import LineChart from '../components/base/LineChart.vue'
 import BreakdownList from '../components/base/BreakdownList.vue'
 import AlertBanner from '../components/base/AlertBanner.vue'
+import StoreMetricsCards from '../components/StoreMetricsCards.vue'
 import { useProjectsStore } from '../stores/projects'
 import { projectsApi } from '../api/projects'
 
@@ -186,24 +183,16 @@ async function onUploadApk() {
     apkUploading.value = false
   }
 }
-
-// Un solo string (en vez de texto + <template> separados) para que el
-// espacio antes de "Ver README" no dependa de como Vue condensa los
-// espacios en blanco entre nodos de la plantilla.
-function storeMessage(entry) {
-  if (!entry) return ''
-  const base = entry.reason || entry.note || 'Sin datos todavía.'
-  const hint = entry.supported ? '' : ' Ver README → "Instalaciones desde Google Play / App Store".'
-  return base + hint
-}
-const googleStoreMessage = computed(() => storeMessage(storeStats.value?.google))
-const appleStoreMessage = computed(() => storeMessage(storeStats.value?.apple))
 </script>
 
 <style scoped>
 .users-link {
   margin-bottom: 1.5rem;
   display: inline-block;
+}
+
+.no-backend-note {
+  margin-bottom: 1.5rem;
 }
 
 .apk-upload-form {

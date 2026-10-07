@@ -1,9 +1,18 @@
 const { getMongoProjectStats } = require('./mongoConnector');
 const { getInvoiceSnapStats } = require('./invoiceSnapConnector');
 
+// 'none': apps sin backend/base de datos propia (ej. SkillFix, que solo
+// consume la API de YouTube del lado del cliente). No es un error de
+// conexion -> "noBackend: true" en vez de "connected: false", para que el
+// frontend muestre solo las metricas de tienda en vez del banner de error.
+async function getNoBackendStats() {
+  return { connected: true, noBackend: true };
+}
+
 const handlers = {
   mongo: getMongoProjectStats,
   postgres: getInvoiceSnapStats,
+  none: getNoBackendStats,
 };
 
 // Nunca deja que un backend caido/mal configurado tumbe el resto del panel:
