@@ -73,8 +73,9 @@ module.exports = [
     store: {
       androidPackageName: 'com.venturesflstudio.habanera',
       iosBundleId: 'com.venturesflstudio.habanera',
-      appleAppId: null, // completar desde App Store Connect
+      appleAppId: 6792431382,
     },
+    apkDistribution: { enabled: true },
   },
   {
     // Sin backend propio: la app solo consume la API de YouTube y links de
@@ -93,6 +94,7 @@ module.exports = [
       // WAITING_FOR_REVIEW -> sin datos de ventas hasta que se apruebe.
       appleAppId: 6788056557,
     },
+    apkDistribution: { enabled: true },
   },
   {
     id: 'cubradar',
@@ -117,8 +119,9 @@ module.exports = [
     store: {
       androidPackageName: 'com.venturesflstudio.curb_radar',
       iosBundleId: 'com.venturesflstudio.curbRadar',
-      appleAppId: null,
+      appleAppId: 6773447435,
     },
+    apkDistribution: { enabled: true },
   },
   {
     id: 'fixradar',
@@ -184,6 +187,12 @@ module.exports = [
     // DealSnap mezcla usuarios locales (password propio) y de Google (sin
     // password) -> el reset solo aplica a authProvider === 'local'.
     auth: { bcrypt: { field: 'password', condition: { field: 'authProvider', equals: 'local' } } },
+    // No se encontro build de Android en mios/ para esta app -> solo iOS.
+    store: {
+      iosBundleId: 'com.venturesflstudio.promoff',
+      appleAppId: 6768331732,
+    },
+    apkDistribution: { enabled: true },
   },
   {
     id: 'kambalache',
@@ -202,6 +211,9 @@ module.exports = [
     },
     capabilities: { activeUsers: false, subscriptions: false, platforms: false },
     auth: { bcrypt: { field: 'password' } },
+    // No existe entrada en App Store Connect para Kambalache (no esta
+    // publicada en ninguna tienda todavia).
+    apkDistribution: { enabled: true },
   },
   {
     id: 'invoice-snap',
@@ -214,7 +226,40 @@ module.exports = [
     store: {
       androidPackageName: 'com.venturesflstudio.invoice_snap',
       iosBundleId: 'com.venturesflstudio.invoicesnap.invoiceSnap',
-      appleAppId: null,
+      appleAppId: 6800543635,
     },
+    apkDistribution: { enabled: true },
+  },
+  {
+    // Sin backend propio (solo Firebase, igual que SkillFix). Ya esta en
+    // produccion en Google Play; en Apple fue rechazada y no esta publicada
+    // -> no tiene sentido ofrecer descarga directa (ya se puede bajar de Play).
+    id: 'cardalert',
+    name: 'CardAlert',
+    description: 'Recordatorios de pago y seguimiento de tarjetas y saldos',
+    type: 'none',
+    color: '#ef4444',
+    capabilities: { activeUsers: false, subscriptions: false, platforms: false },
+    store: {
+      androidPackageName: 'com.venturesflstudio.card_alert',
+      iosBundleId: 'com.venturesflstudio.cardAlert',
+      appleAppId: 6803081924,
+    },
+  },
+  {
+    // Sin backend propio: solo consume APIs externas por HTTP del lado del
+    // cliente, sin Firebase ni Mongo.
+    id: 'tofast',
+    name: 'ToFast',
+    description: 'Radar de oportunidades en anuncios de Revolico (precio/palabra clave)',
+    type: 'none',
+    color: '#14b8a6',
+    capabilities: { activeUsers: false, subscriptions: false, platforms: false },
+    store: {
+      androidPackageName: 'com.venturesflstudio.tofastapp',
+      iosBundleId: 'com.venturesflstudio.toofast',
+      appleAppId: 6773619974,
+    },
+    apkDistribution: { enabled: true },
   },
 ];
