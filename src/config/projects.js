@@ -187,12 +187,13 @@ module.exports = [
     // DealSnap mezcla usuarios locales (password propio) y de Google (sin
     // password) -> el reset solo aplica a authProvider === 'local'.
     auth: { bcrypt: { field: 'password', condition: { field: 'authProvider', equals: 'local' } } },
-    // No se encontro build de Android en mios/ para esta app -> solo iOS.
+    // Solo existe build de iOS para esta app (sin carpeta de app Android en
+    // mios/, ni androidPackageName en App Store Connect) -> sin apkDistribution,
+    // no hay ningun .apk que gestionar.
     store: {
       iosBundleId: 'com.venturesflstudio.promoff',
       appleAppId: 6768331732,
     },
-    apkDistribution: { enabled: true },
   },
   {
     id: 'kambalache',
