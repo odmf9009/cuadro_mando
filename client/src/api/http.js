@@ -34,9 +34,21 @@ async function request(path, { method = 'GET', body, params } = {}) {
   return data
 }
 
+// Subida de archivos (FormData): no se puede pasar por request() porque ahi
+// siempre serializa a JSON. El navegador pone el Content-Type correcto
+// (multipart/form-data; boundary=...) solo si uno NO lo fija a mano.
+async function postFormData(path, formData) {
+  const res = await fetch(path, { method: 'POST', credentials: 'include', body: formData })
+  const isJson = res.headers.get('content-type')?.includes('application/json')
+  const data = isJson ? await res.json() : null
+  if (!res.ok) throw new ApiError(data?.error || `Error ${res.status}`, res.status)
+  return data
+}
+
 export const http = {
   get: (path, params) => request(path, { params }),
   post: (path, body) => request(path, { method: 'POST', body }),
+  postFormData,
 }
 
 export { ApiError }

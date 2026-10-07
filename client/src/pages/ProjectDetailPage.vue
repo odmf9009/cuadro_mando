@@ -81,6 +81,33 @@
           </template>
           <p v-else class="muted small">{{ appleStoreMessage }}</p>
         </BaseCard>
+
+        <BaseCard v-if="project.hasApkDistribution" title="Distribución directa (APK)">
+          <template v-if="apkInfo?.info">
+            <p class="muted small">
+              Versión <strong>{{ apkInfo.info.version || '(sin especificar)' }}</strong> ·
+              {{ (apkInfo.info.sizeBytes / 1024 / 1024).toFixed(1) }} MB ·
+              subida el {{ new Date(apkInfo.info.uploadedAt).toLocaleString('es') }}
+            </p>
+            <p v-if="apkInfo.info.notes" class="muted small">{{ apkInfo.info.notes }}</p>
+            <h3 class="panel-subtitle">Link público (para el portafolio)</h3>
+            <div class="link-box"><code>{{ fullPublicApkUrl }}</code></div>
+          </template>
+          <p v-else class="muted small">Todavía no se subió ningún APK para este proyecto.</p>
+
+          <h3 class="panel-subtitle">{{ apkInfo?.info ? 'Reemplazar por una versión nueva' : 'Subir el primer APK' }}</h3>
+          <form class="apk-upload-form" @submit.prevent="onUploadApk">
+            <input type="file" accept=".apk" required @change="onApkFileChange" />
+            <BaseInput v-model="apkVersion" label="Versión (opcional)" placeholder="ej. 1.4.0" />
+            <BaseInput v-model="apkNotes" label="Notas (opcional)" placeholder="ej. fix de notificaciones" />
+            <BaseButton type="submit" :disabled="!apkFile || apkUploading">
+              {{ apkUploading ? 'Subiendo…' : 'Subir APK' }}
+            </BaseButton>
+          </form>
+          <AlertBanner v-if="apkResult" :type="apkResult.type" class="apk-result">
+            {{ apkResult.message }}
+          </AlertBanner>
+        </BaseCard>
       </section>
     </template>
   </AppLayout>
@@ -88,6 +115,8 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import BaseInput from '../components/base/BaseInput.vue'
+import BaseButton from '../components/base/BaseButton.vue'
 import AppLayout from '../components/layout/AppLayout.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import StatCard from '../components/base/StatCard.vue'
@@ -103,24 +132,60 @@ const projectsStore = useProjectsStore()
 const project = ref(null)
 const stats = ref(null)
 const storeStats = ref(null)
+const apkInfo = ref(null)
+const apkFile = ref(null)
+const apkVersion = ref('')
+const apkNotes = ref('')
+const apkUploading = ref(false)
+const apkResult = ref(null)
 
 async function load() {
   await projectsStore.load()
   project.value = projectsStore.byId(props.id)
   stats.value = null
   storeStats.value = null
+  apkInfo.value = null
   if (!project.value) return
 
-  const [statsData, storeData] = await Promise.all([
+  const [statsData, storeData, apkData] = await Promise.all([
     projectsApi.stats(props.id),
     project.value.hasStoreMetrics ? projectsApi.storeStats(props.id) : Promise.resolve(null),
+    project.value.hasApkDistribution ? projectsApi.apkInfo(props.id) : Promise.resolve(null),
   ])
   stats.value = statsData
   storeStats.value = storeData
+  apkInfo.value = apkData
 }
 
 onMounted(load)
 watch(() => props.id, load)
+
+const fullPublicApkUrl = computed(() => apkInfo.value ? `${window.location.origin}${apkInfo.value.publicUrl}` : '')
+
+function onApkFileChange(event) {
+  apkFile.value = event.target.files[0] || null
+}
+
+async function onUploadApk() {
+  if (!apkFile.value) return
+  apkUploading.value = true
+  apkResult.value = null
+  try {
+    const res = await projectsApi.uploadApk(props.id, apkFile.value, {
+      version: apkVersion.value,
+      notes: apkNotes.value,
+    })
+    apkInfo.value = { info: res.info, publicUrl: res.publicUrl }
+    apkResult.value = { type: 'ok', message: '✅ APK subido. El link público ya sirve esta versión.' }
+    apkFile.value = null
+    apkVersion.value = ''
+    apkNotes.value = ''
+  } catch (err) {
+    apkResult.value = { type: 'error', message: `⚠ ${err.message}` }
+  } finally {
+    apkUploading.value = false
+  }
+}
 
 // Un solo string (en vez de texto + <template> separados) para que el
 // espacio antes de "Ver README" no dependa de como Vue condensa los
@@ -139,5 +204,21 @@ const appleStoreMessage = computed(() => storeMessage(storeStats.value?.apple))
 .users-link {
   margin-bottom: 1.5rem;
   display: inline-block;
+}
+
+.apk-upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.apk-upload-form input[type='file'] {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.apk-result {
+  margin-top: 0.8rem;
 }
 </style>

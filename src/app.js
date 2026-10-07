@@ -6,6 +6,8 @@ const session = require('express-session');
 const { requireLogin } = require('./middleware/auth');
 const authRoutes = require('./routes/auth.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const projects = require('./config/projects');
+const apkStorage = require('./services/apkStorage');
 
 const app = express();
 const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
@@ -25,6 +27,21 @@ app.use(
 
 // Login/logout, accesibles sin sesion.
 app.use(authRoutes);
+
+// Descarga publica del APK (sin sesion a proposito: la visita cualquiera
+// desde el portafolio, no solo el admin). La URL es estable -> el portafolio
+// la enlaza una sola vez, el contenido cambia con cada subida desde el
+// dashboard (ver dashboard.routes.js -> POST /api/projects/:id/apk).
+app.get('/downloads/:id.apk', (req, res) => {
+  const project = projects.find((p) => p.id === req.params.id);
+  if (!project || !project.apkDistribution || !project.apkDistribution.enabled) {
+    return res.status(404).send('No encontrado');
+  }
+  const info = apkStorage.getInfo(project.id);
+  if (!info) return res.status(404).send('Todavía no se subió ningún APK para este proyecto.');
+
+  res.download(apkStorage.filePath(project.id), `${project.name.replace(/\s+/g, '')}.apk`);
+});
 
 // Todo lo demas bajo /api requiere haber iniciado sesion.
 app.use('/api', requireLogin, dashboardRoutes);

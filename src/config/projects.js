@@ -52,6 +52,11 @@
 // del propio codigo del proyecto (build.gradle / Info.plist), ya estan
 // puestos. appleAppId es el ID NUMERICO de App Store Connect (no el bundle
 // id) -> hay que copiarlo a mano desde ahi, no existe en el codigo.
+//
+// apkDistribution (opcional): { enabled: true } habilita subir/reemplazar
+// un .apk desde la pagina del proyecto, servido en una URL publica fija
+// (/downloads/<id>.apk) para distribuir fuera de Google Play (ej. mientras
+// se espera la aprobacion). Ver src/services/apkStorage.js.
 
 module.exports = [
   {
@@ -151,6 +156,12 @@ module.exports = [
       iosBundleId: 'com.venturesflstudio.fixRadar',
       appleAppId: 6782331585,
     },
+    // Distribucion directa del APK mientras Google Play aprueba la app.
+    // La URL publica de descarga (/downloads/fixradar.apk) nunca cambia:
+    // el portafolio (krbusinessventures.org) la enlaza UNA sola vez: cada
+    // vez que se sube un APK nuevo aqui, esa misma URL sirve el archivo
+    // actualizado. No hace falta avisarle a porfolio de nada.
+    apkDistribution: { enabled: true },
   },
   {
     id: 'dealsnap',

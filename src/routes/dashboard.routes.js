@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const multer = require('multer');
 const projects = require('../config/projects');
 const { getAllProjectStats, getProjectStats } = require('../connectors');
 const {
@@ -12,6 +13,14 @@ const { generateTempPassword, hashPassword } = require('../services/passwordGene
 const { sendMail, isConfigured: mailerConfigured } = require('../services/mailer');
 const appStoreSales = require('../connectors/stores/appStoreSales');
 const googlePlayReports = require('../connectors/stores/googlePlayReports');
+const apkStorage = require('../services/apkStorage');
+
+// En memoria (no en disco) antes de validarlo -> apkStorage.save() lo
+// escribe ya validado. 300MB cubre un APK grande con margen.
+const apkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 300 * 1024 * 1024 },
+}).single('apk');
 
 const router = Router();
 
@@ -28,6 +37,7 @@ function toSafeProject(project) {
     capabilities: project.capabilities,
     hasUsersTab: project.type === 'mongo',
     hasStoreMetrics: Boolean(project.store),
+    hasApkDistribution: Boolean(project.apkDistribution && project.apkDistribution.enabled),
     segments: project.segments
       ? {
           options: [
@@ -222,6 +232,49 @@ router.post('/projects/:id/users/:userId/set-temp-password', async (req, res) =>
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }
+});
+
+// --- Distribucion directa de APK (fuera de Google Play) ---
+
+function requireApkDistribution(req, res) {
+  const project = findProject(req.params.id);
+  if (!project || !project.apkDistribution || !project.apkDistribution.enabled) {
+    res.status(404).json({ error: 'No aplica a este proyecto' });
+    return null;
+  }
+  return project;
+}
+
+router.get('/projects/:id/apk', (req, res) => {
+  const project = requireApkDistribution(req, res);
+  if (!project) return;
+  res.json({
+    info: apkStorage.getInfo(project.id),
+    publicUrl: `/downloads/${project.id}.apk`,
+  });
+});
+
+router.post('/projects/:id/apk', (req, res) => {
+  const project = requireApkDistribution(req, res);
+  if (!project) return;
+
+  apkUpload(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'Falta el archivo .apk' });
+
+    const name = (req.file.originalname || '').toLowerCase();
+    if (!name.endsWith('.apk')) {
+      return res.status(400).json({ error: 'El archivo debe tener extensión .apk' });
+    }
+
+    apkStorage.save(project.id, req.file.buffer, {
+      version: req.body.version,
+      notes: req.body.notes,
+      originalName: req.file.originalname,
+    });
+
+    res.json({ ok: true, info: apkStorage.getInfo(project.id), publicUrl: `/downloads/${project.id}.apk` });
+  });
 });
 
 module.exports = router;
