@@ -51,6 +51,18 @@
             <BreakdownList :data="stats.subscriptions.byPlan" />
             <h3 class="panel-subtitle">Por estado</h3>
             <BreakdownList :data="stats.subscriptions.byStatus" />
+            <template v-if="stats.subscriptions.revenueByPlan?.length">
+              <h3 class="panel-subtitle">Generado por plan</h3>
+              <ul class="breakdown-list">
+                <li v-for="r in stats.subscriptions.revenueByPlan" :key="r.plan + r.currency">
+                  <span>
+                    {{ r.plan }}
+                    <span v-if="r.isTestMode" class="test-mode-tag" title="Pago en modo prueba de Stripe, no es dinero real">PRUEBA</span>
+                  </span>
+                  <strong>{{ r.total.toLocaleString('es', { minimumFractionDigits: 2 }) }} {{ r.currency.toUpperCase() }}</strong>
+                </li>
+              </ul>
+            </template>
           </template>
           <p v-else class="muted small">Este proyecto no guarda suscripciones en su base de datos todavía.</p>
         </BaseCard>
@@ -68,8 +80,9 @@
 
         <BaseCard title="Ingresos">
           <template v-if="stats.revenue?.length">
-            <p v-for="r in stats.revenue" :key="r.currency" class="big-number">
+            <p v-for="r in stats.revenue" :key="r.currency + r.isTestMode" class="big-number">
               {{ r.total.toLocaleString('es', { minimumFractionDigits: 2 }) }} <span class="muted small">{{ r.currency }}</span>
+              <span v-if="r.isTestMode" class="test-mode-tag" title="Pago en modo prueba, no es dinero real">PRUEBA</span>
             </p>
             <p class="muted small">Suma de compras de créditos completadas (no incluye el valor de suscripciones recurrentes).</p>
           </template>
@@ -193,6 +206,17 @@ async function onUploadApk() {
 
 .no-backend-note {
   margin-bottom: 1.5rem;
+}
+
+.test-mode-tag {
+  margin-left: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  vertical-align: middle;
 }
 
 .apk-upload-form {

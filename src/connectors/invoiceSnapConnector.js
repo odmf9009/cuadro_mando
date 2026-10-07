@@ -2,8 +2,11 @@ const { Pool } = require('pg');
 
 // Este conector es especifico de Invoice Snap porque es el unico proyecto
 // con Postgres (Prisma) y el unico que hoy guarda suscripciones reales
-// (tabla "subscriptions", sincronizada por webhooks de RevenueCat) y
-// compras de creditos con precio (tabla "credit_purchases").
+// (tabla "subscriptions") y compras de creditos con precio (tabla
+// "credit_purchases"). El pago real hoy es via Stripe (web) -> el monto NO
+// esta en la tabla "subscriptions" (RevenueCat no reporta precio), asi que
+// el ingreso por plan se saca del payload crudo de "webhook_events"
+// (evento "checkout.session.completed" de Stripe, que si trae el precio).
 const pools = new Map();
 
 function getPool(uri) {
@@ -38,6 +41,7 @@ async function getInvoiceSnapStats(project) {
       subsByPlanRes,
       subsByPlatformRes,
       revenueRes,
+      revenueByPlanRes,
     ] = await Promise.all([
       pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE "deletedAt" IS NULL`),
       pool.query(
@@ -69,11 +73,30 @@ async function getInvoiceSnapStats(project) {
       pool.query(
         `SELECT platform, COUNT(*)::int AS count FROM subscriptions WHERE "isActive" = true GROUP BY platform`
       ),
+      // "environment" (test/live) viene directo en la tabla -> mas
+      // confiable que inferirlo de otro lado. Nunca se suma junto a "live"
+      // en el mismo total, para no inflar ingresos reales con pruebas.
       pool.query(`
-        SELECT currency, COALESCE(SUM("pricePaid"), 0)::float AS total
+        SELECT currency, environment, COALESCE(SUM("pricePaid"), 0)::float AS total
         FROM credit_purchases
         WHERE status = 'COMPLETED'
-        GROUP BY currency
+        GROUP BY currency, environment
+      `),
+      // Ingreso por plan: el precio NO esta en "subscriptions" (RevenueCat
+      // no lo reporta) -> se extrae del payload crudo de Stripe que si lo
+      // trae. "mode = subscription" excluye las compras de creditos
+      // (checkout.session.completed tambien se usa para esas).
+      pool.query(`
+        SELECT
+          payload->'data'->'object'->'metadata'->>'plan' AS plan,
+          payload->'data'->'object'->>'currency' AS currency,
+          COALESCE((payload->'data'->'object'->>'livemode')::boolean, false) AS livemode,
+          SUM((payload->'data'->'object'->>'amount_total')::numeric) / 100.0 AS total
+        FROM webhook_events
+        WHERE "eventType" = 'checkout.session.completed'
+          AND payload->'data'->'object'->>'mode' = 'subscription'
+        GROUP BY plan, currency, livemode
+        ORDER BY plan
       `),
     ]);
 
@@ -91,9 +114,22 @@ async function getInvoiceSnapStats(project) {
         active: subsActiveRes.rows[0].count,
         byStatus: rowsToCountMap(subsByStatusRes.rows, 'status'),
         byPlan: rowsToCountMap(subsByPlanRes.rows, 'plan'),
+        // Por cada plan, cuanto genero y si ese pago fue real o modo prueba
+        // de Stripe (livemode=false) -> nunca se mezclan en un solo numero,
+        // para no hacer pasar dinero de prueba por ingresos reales.
+        revenueByPlan: revenueByPlanRes.rows.map((r) => ({
+          plan: r.plan || 'desconocido',
+          currency: r.currency,
+          total: Number(r.total),
+          isTestMode: !r.livemode,
+        })),
       },
       platforms: rowsToCountMap(subsByPlatformRes.rows, 'platform'),
-      revenue: revenueRes.rows.map((r) => ({ currency: r.currency, total: r.total })),
+      revenue: revenueRes.rows.map((r) => ({
+        currency: r.currency,
+        total: r.total,
+        isTestMode: r.environment !== 'live',
+      })),
     };
   } catch (err) {
     return { connected: false, error: err.message };
