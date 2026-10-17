@@ -14,8 +14,9 @@ const CURRENCY_SYMBOLS = { USD: '$', EUR: '€' }
 
 export function formatMoney(amount, currency = 'USD') {
   const code = String(currency).toUpperCase()
-  const n = amount.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return CURRENCY_SYMBOLS[code] ? `${CURRENCY_SYMBOLS[code]}${n}` : `${n} ${code}`
+  const sign = amount < 0 ? '-' : ''
+  const n = Math.abs(amount).toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return CURRENCY_SYMBOLS[code] ? `${sign}${CURRENCY_SYMBOLS[code]}${n}` : `${sign}${n} ${code}`
 }
 
 const fmtInt = (n) => n.toLocaleString('es')
@@ -159,17 +160,52 @@ function googleSection(project, stats, storeStats) {
     installs = { state: 'unavailable', reason: google.note || google.reason || 'Sin datos todavía', source: SRC.googleReport }
   }
 
-  let revenue
-  if (!hasListing) revenue = { state: 'unavailable', reason: 'Esta app no tiene versión Android registrada' }
-  else if (!storeStats) revenue = { state: 'loading', source: SRC.googleReport }
-  else if (google.revenue != null) revenue = { state: 'ok', value: formatMoney(google.revenue), hint: formatPeriod(google.month), source: SRC.googleReport }
-  else {
-    revenue = {
-      state: 'pending',
-      reason: google.supported ? 'Pendiente de leer los informes de ganancias' : 'Pendiente de acceso a los informes de Google Play',
-      source: SRC.googleReport,
-    }
+  // Ganancias: del informe de ganancias de Google (importado o del bucket). "net" =
+  // cobros menos la comision de Google, tal cual el informe.
+  const earnings = google?.earnings
+  const earningsSource = {
+    kind: 'google',
+    label: earnings?.source === 'manual' ? 'Informe de ganancias (importado)' : 'Informe de ganancias de Google',
   }
+  const earningsHistory = (google?.earningsHistory || []).map((h) => ({ label: shortMonth(h.month), value: h.net }))
+
+  let revenue
+  let charges = null
+  if (!hasListing) revenue = { state: 'unavailable', reason: 'Esta app no tiene versión Android registrada' }
+  else if (!storeStats) revenue = { state: 'loading', source: earningsSource }
+  else if (earnings?.supported) {
+    revenue = {
+      state: 'ok',
+      value: formatMoney(earnings.net, earnings.currency),
+      hint: formatPeriod(earnings.month),
+      source: earningsSource,
+      details: [
+        { label: 'Cobros (bruto)', value: formatMoney(earnings.gross, earnings.currency) },
+        { label: 'Comisión de Google', value: formatMoney(earnings.fees, earnings.currency) },
+      ],
+      note: earnings.mixedCurrencies ? 'El informe mezcla monedas: revisa el detalle en Play Console.' : undefined,
+      ...(earningsHistory.some((i) => i.value) ? { series: earningsHistory, seriesColor: '#4ade80', seriesFormat: (v) => formatMoney(v, earnings.currency) } : {}),
+    }
+    const skus = entriesOf(earnings.bySku)
+    if (skus.length) {
+      charges = {
+        id: 'charges',
+        label: 'Cobros de suscripción',
+        state: 'ok',
+        value: fmtInt(earnings.charges),
+        hint: formatPeriod(earnings.month),
+        source: earningsSource,
+        details: skus.map(([sku, v]) => ({ label: sku, value: `${plural(v.charges, 'cobro', 'cobros')} · ${formatMoney(v.gross, earnings.currency)}` })),
+        note: 'Cobros del mes, no suscriptores activos (un mismo suscriptor se cobra cada periodo).',
+      }
+    }
+  } else {
+    revenue = { state: 'pending', reason: earnings?.reason || 'Sin informes de ganancias todavía', source: earningsSource }
+  }
+
+  const subs = subscriptionsRow(project, stats, 'google')
+  // Si hay cobros reales de Google, la fila "no se puede atribuir" sobra.
+  const subsRows = charges && subs.state === 'unavailable' ? [] : [subs]
 
   return {
     id: 'google',
@@ -180,10 +216,11 @@ function googleSection(project, stats, storeStats) {
     rows: [
       { id: 'installs', label: 'Instalaciones', ...installs },
       { id: 'revenue', label: 'Ingresos netos', ...revenue },
-      subscriptionsRow(project, stats, 'google'),
+      ...(charges ? [charges] : []),
+      ...subsRows,
       ...purchasesRows(stats, ['google']),
     ],
-    footer: 'Fuente: informes de Google Play Console. Los ingresos serán netos tras la comisión de Google.',
+    footer: 'Fuente: informes de Google Play Console. Los ingresos son netos tras la comisión de Google (tal como los reporta el informe de ganancias).',
   }
 }
 

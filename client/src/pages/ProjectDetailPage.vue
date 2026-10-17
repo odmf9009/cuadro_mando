@@ -42,6 +42,17 @@
         <p class="muted small">Los informes de Apple y Google son mensuales; el mes en curso no se publica hasta que cierra.</p>
       </div>
 
+      <ReportImport
+        v-if="project.store?.hasAndroidListing"
+        class="reports-import"
+        title="Importar informe de ganancias de Google Play (.zip)"
+        accept=".zip"
+        :hint="'Descárgalo en Play Console → Descargar informes → Financiero → Informes de ganancias → mes. Sirve para toda la cuenta; si lo importas otra vez se reemplaza, no se duplica.'"
+        :imported="importedMonths"
+        :upload="importReport"
+        @imported="onReportImported"
+      />
+
       <section v-if="sections.length" class="store-grid">
         <StoreCard
           v-for="section in sections"
@@ -128,6 +139,7 @@ import SkeletonBlock from '../components/base/SkeletonBlock.vue'
 import SkeletonLines from '../components/base/SkeletonLines.vue'
 import StoreCard from '../components/StoreCard.vue'
 import ProjectUsers from '../components/ProjectUsers.vue'
+import ReportImport from '../components/ReportImport.vue'
 import { useProjectsStore } from '../stores/projects'
 import { useProjectSections } from '../composables/useProjectSections'
 import { projectsApi } from '../api/projects'
@@ -213,6 +225,33 @@ async function load() {
   }
 }
 
+// Informes de ganancias de Google importados a mano (cubren toda la cuenta).
+const playMonths = ref([])
+const importedMonths = computed(() =>
+  playMonths.value
+    .map((m) => new Date(Number(m.month.slice(0, 4)), Number(m.month.slice(4)) - 1, 1).toLocaleDateString('es', { month: 'short', year: 'numeric' }))
+    .join(', ')
+)
+
+async function refreshPlayMonths() {
+  try {
+    playMonths.value = (await projectsApi.playReportMonths()).months
+  } catch {
+    playMonths.value = []
+  }
+}
+
+async function importReport(file) {
+  const res = await projectsApi.uploadPlayReport(file)
+  const label = new Date(Number(res.month.slice(0, 4)), Number(res.month.slice(4)) - 1, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' })
+  return { message: `Informe de ${label} importado (${res.rows} movimientos).` }
+}
+
+function onReportImported() {
+  refreshPlayMonths()
+  loadStoreStats(props.id)
+}
+
 // Metricas de tienda: se piden aparte (APIs externas, las mas lentas) y se
 // repiden al cambiar de periodo sin tocar el resto de la pagina. Gana siempre
 // la peticion mas reciente.
@@ -230,7 +269,10 @@ function loadStoreStats(projectId) {
     })
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  refreshPlayMonths()
+})
 watch(() => props.id, load)
 watch(period, () => {
   if (project.value?.hasStoreMetrics) loadStoreStats(props.id)
@@ -277,6 +319,13 @@ async function onUploadApk() {
   margin-bottom: 1rem;
 }
 .period-bar p { margin: 0 0 0.6rem; }
+
+.reports-import {
+  margin-bottom: 1.2rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
 
 .apk-upload-form {
   display: flex;

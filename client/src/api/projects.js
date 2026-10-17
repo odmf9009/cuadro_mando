@@ -10,6 +10,12 @@ export const projectsApi = {
   userActivity: (id, userId) => http.get(`/api/projects/${id}/users/${encodeURIComponent(userId)}/activity`),
   sendReset: (id, userId) => http.post(`/api/projects/${id}/users/${userId}/send-reset`),
   setTempPassword: (id, userId) => http.post(`/api/projects/${id}/users/${userId}/set-temp-password`),
+  playReportMonths: () => http.get('/api/play-reports/earnings'),
+  uploadPlayReport: (file) => {
+    const formData = new FormData()
+    formData.append('report', file)
+    return http.postFormData('/api/play-reports/earnings', formData)
+  },
   apkInfo: (id) => http.get(`/api/projects/${id}/apk`),
   uploadApk: (id, file, { version = '', notes = '' } = {}) => {
     const formData = new FormData()

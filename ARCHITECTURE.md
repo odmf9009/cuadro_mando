@@ -57,8 +57,9 @@ cuadro_mando/
 │   │   ├── firebaseAdmin.js            # apps de firebase-admin por proyecto, links de reset
 │   │   └── stores/
 │   │       ├── appStoreSales.js        # ventas/proceeds + estado de la app en App Store Connect
-│   │       └── googlePlayReports.js    # instalaciones desde el bucket de informes de Play
-│   ├── services/ (mailer, passwordGenerator, apkStorage)
+│   │       ├── googlePlayReports.js    # instalaciones (bucket) + ganancias (ZIP importado o bucket)
+│   │       └── googleEarnings.js       # lee y resume el ZIP de ganancias de Play (PlayApps_AAAAMM.csv)
+│   ├── services/ (mailer, passwordGenerator, apkStorage, playReportsStorage)
 │   ├── middleware/auth.js              # requireLogin
 │   └── routes/ (auth.routes.js, dashboard.routes.js)
 │
@@ -163,6 +164,7 @@ con `override:true` (solo las claves que traiga). Todas las rutas a archivos se 
 | GET | `/api/projects/:id/users/:userId/activity` | Ficha: incidencias y trabajos (solo con `userActivity`) |
 | POST | `/api/projects/:id/users/:userId/send-reset` · `/set-temp-password` | Reset de contraseña |
 | GET/POST | `/api/projects/:id/apk` | Info / subida del APK (solo con `apkDistribution`) |
+| GET/POST | `/api/play-reports/earnings` | Meses importados / importar el ZIP de ganancias de Play (de TODA la cuenta; se valida que sea un informe real, reimportar reemplaza) |
 | GET | `/downloads/:id.apk` | Descarga pública del último APK subido (URL estable) |
 
 `toSafeProject`: `id, name, description, color, type, capabilities, hasUsersTab, userColumns, hasPasswordReset,
@@ -185,7 +187,9 @@ hasStoreMetrics, store:{hasAppleListing,hasAndroidListing}, hasApkDistribution, 
 
 ```
 { apple:  { supported, month, units, proceeds, history?: [{month,units,proceeds,pending?}], status?: {state,label,tone,version,next?} | null | undefined, reason?, note? },
-  google: { supported, month, totalInstalls, totalUninstalls, reason?, note? } }
+  google: { supported, month, totalInstalls, totalUninstalls, reason?, note?,
+            earnings?: { supported, month, source:'manual'|'bucket', currency, gross, fees, net, charges, refunds, bySku:{sku:{charges,gross}}, reason? },
+            earningsHistory?: [{month:'AAAAMM', net|null}] } }
 ```
 `status: null` = la app no tiene ficha en App Store Connect; `undefined` = no se pudo consultar.
 `history` = últimos 6 meses (antiguo→reciente); `units/proceeds: null` = sin informe todavía (el mes en curso no existe hasta que Apple lo cierra: no es un cero). Un mes explícito devuelve `units:null` + `note` si es el mes en curso.
@@ -237,7 +241,7 @@ no entra en totales globales.
 
 ### 8.2 Compuestos y layout
 
-`StoreCard` (presentación pura de una sección), `ProjectUsers` (listado completo de usuarios, reutilizable para cualquier
+`StoreCard` (presentación pura de una sección), `ReportImport` (subir un archivo a mano con resultado y recarga), `ProjectUsers` (listado completo de usuarios, reutilizable para cualquier
 proyecto con usuarios), `ProjectCard`, `RequestStatusBadge`; `AppLayout` (props `heading`, `subheading`, `crumbs`),
 `Sidebar` (con esqueleto mientras carga el registro), `Topbar` (migas + título).
 
@@ -291,7 +295,7 @@ proyecto; no están en el repositorio.
   CardAlert vía Firebase, distribución de APK, estados de carga, migas, listado dentro del proyecto.
 - **Hecho en fase 2**: selector de periodo (mes) para las métricas de tienda e historial de 6 meses de Apple (descargas e ingresos).
 - **Pendiente (Apple)**: informe de SUSCRIPCIONES (`SUBSCRIPTION`/`SUBSCRIBER`). Hoy Apple responde "Invalid vendor number" para esos tipos aunque `SALES` funcione (probable falta de actividad real de suscripciones en la cuenta); no escribir el lector hasta poder inspeccionar un informe real.
-- **Fase 3**: ingresos y suscripciones de Google desde los informes de ganancias del bucket. Bloqueado hoy por 403 de Cloud
+- **Hecho en fase 3 (parcial)**: ingresos y cobros de Google desde el informe de ganancias, por importación manual del ZIP. El acceso automático al bucket sigue bloqueado. Bloqueado hoy por 403 de Cloud
   Storage (la cuenta de servicio `cuadro-mando-play` está invitada en Play Console; esperar propagación y luego bajar su rol
   de Admin a solo lectura). Antes de escribir el lector, inspeccionar los archivos reales del bucket.
 - **Datos de Google Play** (estado de publicación de cada app): pendiente, requiere permiso de gestión de versiones.

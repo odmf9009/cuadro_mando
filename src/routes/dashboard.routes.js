@@ -16,9 +16,15 @@ const { sendMail, isConfigured: mailerConfigured } = require('../services/mailer
 const appStoreSales = require('../connectors/stores/appStoreSales');
 const googlePlayReports = require('../connectors/stores/googlePlayReports');
 const apkStorage = require('../services/apkStorage');
+const playReportsStorage = require('../services/playReportsStorage');
 
 // En memoria (no en disco) antes de validarlo -> apkStorage.save() lo
 // escribe ya validado. 300MB cubre un APK grande con margen.
+const playReportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+}).single('report');
+
 const apkUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 300 * 1024 * 1024 },
@@ -109,12 +115,15 @@ async function getStoreStats(project, requestedMonth = '') {
 
   const googleMonth = (requestedMonth || new Date().toISOString().slice(0, 7)).replace('-', ''); // YYYYMM
 
-  const [appleResult, googleResult, appleStatusResult, appleHistoryResult] = await Promise.allSettled([
-    appStoreSales.getAppSalesSummary(project, requestedMonth || undefined),
-    googlePlayReports.getInstallsOverview(project, googleMonth),
-    appStoreSales.getAppStoreStatus(project),
-    appStoreSales.getAppSalesHistory(project),
-  ]);
+  const [appleResult, googleResult, appleStatusResult, appleHistoryResult, earningsResult, earningsHistoryResult] =
+    await Promise.allSettled([
+      appStoreSales.getAppSalesSummary(project, requestedMonth || undefined),
+      googlePlayReports.getInstallsOverview(project, googleMonth),
+      appStoreSales.getAppStoreStatus(project),
+      appStoreSales.getAppSalesHistory(project),
+      googlePlayReports.getEarnings(project, requestedMonth ? googleMonth : ''),
+      googlePlayReports.getEarningsHistory(project),
+    ]);
 
   // status: null = la app no tiene ficha en App Store Connect; undefined = no se pudo consultar.
   const appleStatus = appleStatusResult.status === 'fulfilled' ? appleStatusResult.value : undefined;
@@ -127,10 +136,17 @@ async function getStoreStats(project, requestedMonth = '') {
       status: appleStatus,
       history: appleHistoryResult.status === 'fulfilled' ? appleHistoryResult.value : [],
     },
-    google:
-      googleResult.status === 'fulfilled'
+    google: {
+      ...(googleResult.status === 'fulfilled'
         ? googleResult.value
-        : { supported: false, reason: googleResult.reason.message },
+        : { supported: false, reason: googleResult.reason.message }),
+      // Ganancias: viene de un informe importado a mano o del bucket (ver googlePlayReports.getEarnings).
+      earnings:
+        earningsResult.status === 'fulfilled'
+          ? earningsResult.value
+          : { supported: false, reason: earningsResult.reason.message },
+      earningsHistory: earningsHistoryResult.status === 'fulfilled' ? earningsHistoryResult.value : [],
+    },
   };
 }
 
@@ -282,6 +298,28 @@ router.post('/projects/:id/users/:userId/set-temp-password', async (req, res) =>
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }
+});
+
+// --- Informes de ganancias de Google Play importados a mano ---
+// El ZIP de Play Console cubre TODAS las apps de la cuenta, por eso no cuelga de un proyecto.
+
+router.get('/play-reports/earnings', (req, res) => {
+  res.json({ months: playReportsStorage.listMonths() });
+});
+
+router.post('/play-reports/earnings', (req, res) => {
+  playReportUpload(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'Falta el archivo .zip del informe' });
+    if (!/\.zip$/i.test(req.file.originalname || '')) {
+      return res.status(400).json({ error: 'El archivo debe ser el .zip que descarga Play Console' });
+    }
+    try {
+      res.json({ ok: true, ...playReportsStorage.save(req.file.buffer, req.file.originalname) });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
 });
 
 // --- Distribucion directa de APK (fuera de Google Play) ---

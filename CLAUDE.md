@@ -53,7 +53,7 @@ cd client && npm run build   # genera client/dist (Express lo sirve en producci�
 - Rutas a archivos siempre desde `__dirname` (no `process.cwd()`). `PORT` con `Number(process.env.PORT) || 4000`.
 - MongoDB con el driver nativo (no Mongoose). Dinero en `numeric` hasta el último paso.
 - Apple: informes MENSUALES (los diarios casi siempre vienen vacíos); estado de versión con `getAppStoreStatus`.
-- Google Play: instalaciones por informes del bucket; los ingresos están pendientes (ver abajo).
+- Google Play: instalaciones por informes del bucket; las ganancias salen del ZIP de "Informes de ganancias" de Play Console, importado con el control de la página del proyecto (`POST /api/play-reports/earnings`) o, si algún día el bucket responde, de `earnings/`. Los cobros de suscripción NO son suscriptores activos (se dice en la UI).
 
 ## Despliegue (servidor propio, PM2)
 
@@ -78,7 +78,8 @@ sobre `--amend` una vez hecho el push.
   Firebase, APK directo, skeletons, migas, listado en la página del proyecto.
 - Hecho (fase 2): selector de periodo e historial de 6 meses de Apple (descargas/ingresos, `MiniBars`).
 - Pendiente Apple: informe de suscripciones (`SUBSCRIPTION`); hoy responde "Invalid vendor number" aunque `SALES` funcione. No escribir el lector sin ver un informe real.
-- Fase 3: ingresos de Google (bucket de informes). Bloqueado por 403 de Cloud Storage tras invitar a la cuenta de servicio de Play;
-  cuando funcione, bajar su rol de Admin a solo lectura e inspeccionar los archivos reales ANTES de escribir el lector.
+- Hecho (fase 3 parcial): ganancias de Google por importación manual del ZIP (lector verificado con un informe real de sep 2026).
+  El acceso automático al bucket de Play sigue en 403 (la cuenta de servicio no obtiene permisos pese a estar invitada); cuando
+  funcione, bajar su rol de Admin a solo lectura y confirmar la ruta `earnings/` del bucket.
 - Portafolio público (proyecto hermano `mios/porfolio`, Mongo `projects`): su estado/enlaces de tienda se mantienen a mano;
   verificar contra App Store Connect/Google Play antes de cambiar textos de estado.
