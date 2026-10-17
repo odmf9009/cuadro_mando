@@ -76,8 +76,11 @@ async function getInvoiceSnapStats(project) {
       // "environment" (test/live) viene directo en la tabla -> mas
       // confiable que inferirlo de otro lado. Nunca se suma junto a "live"
       // en el mismo total, para no inflar ingresos reales con pruebas.
+      // "pricePaid" es Decimal(10,2): se suma y redondea como numeric (exacto)
+      // y pg lo devuelve como string; solo se pasa a Number al armar la
+      // respuesta, una unica vez, para que el navegador lo formatee.
       pool.query(`
-        SELECT currency, environment, COALESCE(SUM("pricePaid"), 0)::float AS total
+        SELECT currency, environment, ROUND(COALESCE(SUM("pricePaid"), 0), 2) AS total
         FROM credit_purchases
         WHERE status = 'COMPLETED'
         GROUP BY currency, environment
@@ -127,7 +130,7 @@ async function getInvoiceSnapStats(project) {
       platforms: rowsToCountMap(subsByPlatformRes.rows, 'platform'),
       revenue: revenueRes.rows.map((r) => ({
         currency: r.currency,
-        total: r.total,
+        total: Number(r.total),
         isTestMode: r.environment !== 'live',
       })),
     };
