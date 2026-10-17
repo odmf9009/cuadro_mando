@@ -76,7 +76,8 @@ sobre `--amend` una vez hecho el push.
 
 - Hecho: tarjetas por origen, estado de Apple, atribución por origen (Invoice Snap), ficha de usuario FixRadar, CardAlert por
   Firebase, APK directo, skeletons, migas, listado en la página del proyecto.
-- Fase 2: informes de suscripciones de Apple + selector de periodo.
+- Hecho (fase 2): selector de periodo e historial de 6 meses de Apple (descargas/ingresos, `MiniBars`).
+- Pendiente Apple: informe de suscripciones (`SUBSCRIPTION`); hoy responde "Invalid vendor number" aunque `SALES` funcione. No escribir el lector sin ver un informe real.
 - Fase 3: ingresos de Google (bucket de informes). Bloqueado por 403 de Cloud Storage tras invitar a la cuenta de servicio de Play;
   cuando funcione, bajar su rol de Admin a solo lectura e inspeccionar los archivos reales ANTES de escribir el lector.
 - Portafolio público (proyecto hermano `mios/porfolio`, Mongo `projects`): su estado/enlaces de tienda se mantienen a mano;

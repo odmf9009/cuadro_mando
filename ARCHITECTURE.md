@@ -128,8 +128,10 @@ convierte cualquier excepción en `{ connected:false, error }`.
   subcolecciones de tarjetas/pagos. El plan lo escribe la propia app: se marca `unverified` y no se suma al total global.
 - **`firebaseAdmin.js`**: una app de firebase-admin por proyecto; `getFirebaseApp(project)` acepta `project.firebase`
   o `project.auth.firebase`.
-- **`stores/appStoreSales.js`**: `getAppSalesSummary` (informe MENSUAL; cae al mes anterior si el actual está vacío) y
-  `getAppStoreStatus` (estado de la versión: si hay una publicada se informa esa y, aparte, la más nueva).
+- **`stores/appStoreSales.js`**: `getAppSalesSummary(project, month?)` (informe MENSUAL; sin `month` cae al mes anterior si
+  el actual está vacío), `getAppSalesHistory` (6 meses) y `getAppStoreStatus` (estado de la versión: si hay una publicada se
+  informa esa y, aparte, la más nueva). El informe es del VENDOR (todas las apps): se cachea 10 min y una descarga por mes sirve
+  a todos los proyectos.
 - **`stores/googlePlayReports.js`**: instalaciones desde `installs/installs_<pkg>_<YYYYMM>_overview.csv`. Un 403 de
   Cloud Storage se traduce a un mensaje claro (no se muestran rutas internas ni correos).
 
@@ -156,7 +158,7 @@ con `override:true` (solo las claves que traiga). Todas las rutas a archivos se 
 | GET | `/api/projects` | Proyectos "seguros" (sidebar y decisiones de UI) |
 | GET | `/api/overview` | `{ stats:{porId}, summary }` |
 | GET | `/api/projects/:id/stats` | Stats del proyecto (§5.2) |
-| GET | `/api/projects/:id/store-stats` | Apple + Google (§5.3) o `null` |
+| GET | `/api/projects/:id/store-stats?month=YYYY-MM` | Apple + Google (§5.3) o `null`; `month` opcional (formato exacto; sin él, mes en curso con respaldo al anterior) |
 | GET | `/api/projects/:id/users?page=&q=&segment=` | Lista paginada (mongo y firestore) + `resetMethod` |
 | GET | `/api/projects/:id/users/:userId/activity` | Ficha: incidencias y trabajos (solo con `userActivity`) |
 | POST | `/api/projects/:id/users/:userId/send-reset` · `/set-temp-password` | Reset de contraseña |
@@ -182,10 +184,11 @@ hasStoreMetrics, store:{hasAppleListing,hasAndroidListing}, hasApkDistribution, 
 ### 5.3 Forma de `store-stats`
 
 ```
-{ apple:  { supported, month, units, proceeds, status?: {state,label,tone,version,next?} | null | undefined, reason?, note? },
+{ apple:  { supported, month, units, proceeds, history?: [{month,units,proceeds,pending?}], status?: {state,label,tone,version,next?} | null | undefined, reason?, note? },
   google: { supported, month, totalInstalls, totalUninstalls, reason?, note? } }
 ```
 `status: null` = la app no tiene ficha en App Store Connect; `undefined` = no se pudo consultar.
+`history` = últimos 6 meses (antiguo→reciente); `units/proceeds: null` = sin informe todavía (el mes en curso no existe hasta que Apple lo cierra: no es un cero). Un mes explícito devuelve `units:null` + `note` si es el mes en curso.
 
 ## 6. Frontend: núcleo
 
@@ -226,9 +229,10 @@ no entra en totales globales.
 | `StatCard` | KPI; `loading`, `to` (RouterLink), `live` |
 | `StatusBadge` (binario) · `StatusChip` (`tone`: ok/pending/neutral/error) | Estados |
 | `SourceTag` | Etiqueta de origen (`kind`: apple/google/web/firebase/db, `label?`) |
-| `MetricRow` | Fila etiqueta → valor con `state`, `source`, `hint`, `tag`, `details`, `note`, `reason` |
+| `MetricRow` | Fila etiqueta → valor con `state`, `source`, `hint`, `tag`, `details`, `note`, `reason`, `series` (barras) |
 | `Breadcrumbs` | `items:[{label,to?}]`; un item sin label pinta un bloque de carga |
 | `SkeletonBlock`, `SkeletonLines` | Estados de carga |
+| `MiniBars` | Barras pequeñas de una evolución corta (`items:[{label,value}]`, `value:null` = sin dato); la usa `MetricRow` vía `series` |
 | `AlertBanner`, `BreakdownList`, `LiveDot`, `LineChart` (alto fijo `height`) | Utilidades |
 
 ### 8.2 Compuestos y layout
@@ -285,7 +289,8 @@ proyecto; no están en el repositorio.
 
 - **Hecho**: tarjetas por origen, estado de la app en Apple, atribución por origen en Invoice Snap, ficha de usuario de FixRadar,
   CardAlert vía Firebase, distribución de APK, estados de carga, migas, listado dentro del proyecto.
-- **Fase 2**: informes de suscripciones de Apple (para atribuir suscripciones por plan) y selector de periodo común.
+- **Hecho en fase 2**: selector de periodo (mes) para las métricas de tienda e historial de 6 meses de Apple (descargas e ingresos).
+- **Pendiente (Apple)**: informe de SUSCRIPCIONES (`SUBSCRIPTION`/`SUBSCRIBER`). Hoy Apple responde "Invalid vendor number" para esos tipos aunque `SALES` funcione (probable falta de actividad real de suscripciones en la cuenta); no escribir el lector hasta poder inspeccionar un informe real.
 - **Fase 3**: ingresos y suscripciones de Google desde los informes de ganancias del bucket. Bloqueado hoy por 403 de Cloud
   Storage (la cuenta de servicio `cuadro-mando-play` está invitada en Play Console; esperar propagación y luego bajar su rol
   de Admin a solo lectura). Antes de escribir el lector, inspeccionar los archivos reales del bucket.

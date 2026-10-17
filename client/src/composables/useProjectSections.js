@@ -20,6 +20,9 @@ export function formatMoney(amount, currency = 'USD') {
 
 const fmtInt = (n) => n.toLocaleString('es')
 
+// Etiqueta corta de mes para los ejes de las barras: "2026-09" -> "sep".
+const shortMonth = (period) => formatPeriod(period).split(' ')[0]
+
 // "2026-09" (Apple) o "202609" (Google) -> "sep 2026".
 function formatPeriod(period) {
   const digits = String(period || '').replace(/\D/g, '')
@@ -85,6 +88,14 @@ function appleSection(project, stats, storeStats) {
   const hasListing = Boolean(project.store?.hasAppleListing)
   const apple = storeStats?.apple
 
+  // Evolucion de los ultimos meses (null = sin informe todavia). Solo se dibuja
+  // si hay algun valor distinto de cero: una grafica toda a cero no informa.
+  const history = (apple?.history || []).filter(Boolean)
+  const seriesFor = (field, fmt) => {
+    const items = history.map((h) => ({ label: shortMonth(h.month), value: h[field] }))
+    return items.some((i) => i.value) ? { series: items, seriesFormat: fmt } : {}
+  }
+
   const report = (id, label, pick) => {
     if (!hasListing) return { id, label, state: 'unavailable', reason: 'Esta app todavía no tiene ficha en App Store Connect' }
     if (!storeStats) return { id, label, state: 'loading', source: SRC.appleReport }
@@ -109,8 +120,15 @@ function appleSection(project, stats, storeStats) {
     status,
     statusFallback,
     rows: [
-      report('downloads', 'Descargas', (a) => ({ value: fmtInt(a.units), note: a.note })),
-      report('revenue', 'Ingresos netos', (a) => ({ value: formatMoney(a.proceeds) })),
+      report('downloads', 'Descargas', (a) => ({
+        value: fmtInt(a.units),
+        note: a.note,
+        ...seriesFor('units', (v) => `${fmtInt(v)} descargas`),
+      })),
+      report('revenue', 'Ingresos netos', (a) => ({
+        value: formatMoney(a.proceeds),
+        ...seriesFor('proceeds', (v) => formatMoney(v)),
+      })),
       subscriptionsRow(project, stats, 'apple'),
       ...purchasesRows(stats, ['apple']),
     ],

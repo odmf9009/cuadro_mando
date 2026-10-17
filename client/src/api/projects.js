@@ -4,7 +4,7 @@ export const projectsApi = {
   list: () => http.get('/api/projects'),
   overview: () => http.get('/api/overview'),
   stats: (id) => http.get(`/api/projects/${id}/stats`),
-  storeStats: (id) => http.get(`/api/projects/${id}/store-stats`),
+  storeStats: (id, month = '') => http.get(`/api/projects/${id}/store-stats`, { month }),
   users: (id, { page = 1, q = '', segment = '' } = {}) =>
     http.get(`/api/projects/${id}/users`, { page, q, segment }),
   userActivity: (id, userId) => http.get(`/api/projects/${id}/users/${encodeURIComponent(userId)}/activity`),

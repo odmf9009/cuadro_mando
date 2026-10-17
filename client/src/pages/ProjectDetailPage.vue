@@ -37,6 +37,11 @@
 
       <!-- 2. Una tarjeta por ORIGEN de datos (App Store, Google Play y, si hace
            falta, pagos propios). Cada cifra indica de donde sale. -->
+      <div v-if="project.hasStoreMetrics" class="period-bar">
+        <BaseSelect v-model="period" label="Periodo de las métricas de tienda" :options="periodOptions" />
+        <p class="muted small">Los informes de Apple y Google son mensuales; el mes en curso no se publica hasta que cierra.</p>
+      </div>
+
       <section v-if="sections.length" class="store-grid">
         <StoreCard
           v-for="section in sections"
@@ -112,6 +117,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import BaseInput from '../components/base/BaseInput.vue'
+import BaseSelect from '../components/base/BaseSelect.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import AppLayout from '../components/layout/AppLayout.vue'
 import BaseCard from '../components/base/BaseCard.vue'
@@ -139,6 +145,22 @@ const apkVersion = ref('')
 const apkNotes = ref('')
 const apkUploading = ref(false)
 const apkResult = ref(null)
+
+// '' = automatico (mes en curso con respaldo al anterior); si no, 'YYYY-MM'.
+const period = ref('')
+const periodOptions = computed(() => {
+  const options = [{ value: '', label: 'Automático (último mes con datos)' }]
+  const now = new Date()
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const label = d.toLocaleDateString('es', { month: 'long', year: 'numeric' })
+    options.push({
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+    })
+  }
+  return options
+})
 
 const kpiPlaceholders = ['Usuarios totales', 'Nuevos (7 días)', 'Nuevos (30 días)', 'Usuarios activos']
 
@@ -181,15 +203,7 @@ async function load() {
     .then((data) => alive() && (stats.value = data))
     .catch((err) => alive() && (stats.value = { connected: false, error: err.message }))
 
-  if (project.value.hasStoreMetrics) {
-    projectsApi
-      .storeStats(props.id)
-      .then((data) => alive() && (storeStats.value = data))
-      .catch((err) => {
-        const failed = { supported: false, reason: err.message }
-        if (alive()) storeStats.value = { google: failed, apple: { ...failed, status: undefined } }
-      })
-  }
+  if (project.value.hasStoreMetrics) loadStoreStats(props.id)
 
   if (project.value.hasApkDistribution) {
     projectsApi
@@ -199,8 +213,28 @@ async function load() {
   }
 }
 
+// Metricas de tienda: se piden aparte (APIs externas, las mas lentas) y se
+// repiden al cambiar de periodo sin tocar el resto de la pagina. Gana siempre
+// la peticion mas reciente.
+let storeToken = 0
+function loadStoreStats(projectId) {
+  const token = ++storeToken
+  const current = () => token === storeToken && props.id === projectId
+  storeStats.value = null
+  projectsApi
+    .storeStats(projectId, period.value)
+    .then((data) => current() && (storeStats.value = data))
+    .catch((err) => {
+      const failed = { supported: false, reason: err.message }
+      if (current()) storeStats.value = { google: failed, apple: { ...failed, status: undefined } }
+    })
+}
+
 onMounted(load)
 watch(() => props.id, load)
+watch(period, () => {
+  if (project.value?.hasStoreMetrics) loadStoreStats(props.id)
+})
 
 const fullPublicApkUrl = computed(() => apkInfo.value ? `${window.location.origin}${apkInfo.value.publicUrl}` : '')
 
@@ -234,6 +268,15 @@ async function onUploadApk() {
 .no-backend-note {
   margin-bottom: 1.5rem;
 }
+
+.period-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.period-bar p { margin: 0 0 0.6rem; }
 
 .apk-upload-form {
   display: flex;

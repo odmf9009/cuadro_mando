@@ -38,6 +38,12 @@ function buildToken() {
   });
 }
 
+// El informe de ventas es del VENDOR (todas las apps a la vez): una sola
+// descarga por mes sirve a todos los proyectos. Se cachea unos minutos para que
+// abrir varias paginas (o cambiar de periodo) no vuelva a pedirlo a Apple.
+const REPORT_TTL_MS = 10 * 60 * 1000;
+const reportCache = new Map();
+
 // frequency: 'DAILY' (reportDate = YYYY-MM-DD) | 'MONTHLY' (reportDate = YYYY-MM).
 // Un reporte DIARIO de una app con pocas descargas da 0 casi siempre (Apple
 // ni genera el archivo si no hubo actividad ese dia) -> getAppSalesSummary
@@ -47,6 +53,15 @@ async function fetchSalesReport(frequency, reportDate) {
     return { supported: false, reason: 'Faltan credenciales de App Store Connect en .env' };
   }
 
+  const cacheKey = `${frequency}:${reportDate}`;
+  const hit = reportCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < REPORT_TTL_MS) return hit.result;
+  const result = await downloadSalesReport(frequency, reportDate);
+  reportCache.set(cacheKey, { at: Date.now(), result });
+  return result;
+}
+
+async function downloadSalesReport(frequency, reportDate) {
   const token = buildToken();
   const params = new URLSearchParams({
     'filter[frequency]': frequency,
@@ -93,9 +108,21 @@ function monthsAgo(n) {
 // Descargas/ingresos del mes. Si el mes actual todavia no tiene reporte
 // (recien empezo, o la app no tuvo actividad este mes) cae al mes anterior,
 // para no mostrar "0" solo por mala suerte de fecha.
-async function getAppSalesSummary(project) {
+// month (YYYY-MM) opcional: con un mes explicito se informa ESE mes tal cual
+// (sin caer al anterior); sin el, el comportamiento automatico de arriba.
+async function getAppSalesSummary(project, month) {
   const appleAppId = project.store && project.store.appleAppId;
   if (!appleAppId) return { supported: false, reason: 'Este proyecto no tiene appleAppId configurado' };
+
+  if (month) {
+    const { supported, reason, rows } = await fetchSalesReport('MONTHLY', month);
+    if (!supported) return { supported: false, reason };
+    // Mes en curso sin informe: Apple lo publica al cerrar el mes -> no es "0 ventas".
+    if (!rows.length && month === monthsAgo(0)) {
+      return { supported: true, month, units: null, proceeds: null, note: 'Apple publica el informe del mes en curso cuando el mes cierra.' };
+    }
+    return { supported: true, month, ...sumAppRows(rows, appleAppId), ...(rows.length ? {} : { note: 'Sin actividad reportada en este mes' }) };
+  }
 
   for (const month of [monthsAgo(0), monthsAgo(1)]) {
     const { supported, reason, rows } = await fetchSalesReport('MONTHLY', month);
@@ -106,6 +133,25 @@ async function getAppSalesSummary(project) {
   }
 
   return { supported: true, month: monthsAgo(0), units: 0, proceeds: 0, note: 'Sin descargas en los últimos dos meses' };
+}
+
+// Descargas e ingresos de los ultimos N meses (el mes en curso incluido), de
+// mas antiguo a mas reciente, para pintar la evolucion. Un mes que Apple no pudo
+// devolver (o el mes en curso sin informe) queda con units/proceeds en null: no se inventa un 0.
+async function getAppSalesHistory(project, months = 6) {
+  const appleAppId = project.store && project.store.appleAppId;
+  if (!appleAppId || !isConfigured()) return [];
+
+  const list = Array.from({ length: months }, (_, i) => monthsAgo(months - 1 - i));
+  const results = await Promise.allSettled(list.map((m) => fetchSalesReport('MONTHLY', m)));
+  return list.map((month, i) => {
+    const r = results[i];
+    if (r.status !== 'fulfilled' || !r.value.supported) return { month, units: null, proceeds: null };
+    // El informe mensual del mes en curso no existe hasta que Apple lo cierra:
+    // vacio ahi significa "todavia sin informe", no "cero ventas".
+    if (!r.value.rows.length && month === monthsAgo(0)) return { month, units: null, proceeds: null, pending: true };
+    return { month, ...sumAppRows(r.value.rows, appleAppId) };
+  });
 }
 
 // Estado de la app en App Store Connect (no necesita el vendor number: es la
@@ -158,4 +204,4 @@ async function getAppStoreStatus(project) {
   return status;
 }
 
-module.exports = { isConfigured, fetchSalesReport, getAppSalesSummary, getAppStoreStatus };
+module.exports = { isConfigured, fetchSalesReport, getAppSalesSummary, getAppSalesHistory, getAppStoreStatus };

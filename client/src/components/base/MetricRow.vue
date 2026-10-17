@@ -19,6 +19,14 @@
 
     <p v-if="state === 'unavailable' || state === 'pending'" class="muted small metric-reason">{{ reason }}</p>
 
+    <MiniBars
+      v-if="state === 'ok' && series && series.length"
+      class="metric-series"
+      :items="series"
+      :color="seriesColor"
+      :format="seriesFormat"
+    />
+
     <ul v-if="state === 'ok' && details && details.length" class="metric-details">
       <li v-for="d in details" :key="d.label">
         <span>{{ d.label }}</span>
@@ -32,6 +40,7 @@
 <script setup>
 import SkeletonBlock from './SkeletonBlock.vue'
 import SourceTag from './SourceTag.vue'
+import MiniBars from './MiniBars.vue'
 
 // Una fila "etiqueta -> valor" con su origen. state:
 //   loading     -> bloque de carga
@@ -50,6 +59,9 @@ defineProps({
   tagTitle: { type: String, default: '' },
   details: { type: Array, default: () => [] },
   note: { type: String, default: '' },
+  series: { type: Array, default: () => [] }, // [{ label, value }] -> barras bajo la cifra
+  seriesColor: { type: String, default: '#6366f1' },
+  seriesFormat: { type: Function, default: (v) => String(v) },
 })
 </script>
 
@@ -82,6 +94,8 @@ defineProps({
   background: rgba(234, 179, 8, 0.15);
   color: #eab308;
 }
+
+.metric-series { margin-top: 0.6rem; }
 
 .metric-details {
   list-style: none;

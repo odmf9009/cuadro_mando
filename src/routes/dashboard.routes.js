@@ -103,15 +103,17 @@ function summarize(statsByProject) {
 
 // Metricas de tiendas: nunca deben tumbar la pagina del proyecto si fallan
 // (dependen de credenciales externas que hoy no estan configuradas).
-async function getStoreStats(project) {
+// requestedMonth: 'YYYY-MM' (ya validado) o '' = automatico (mes en curso con respaldo al anterior).
+async function getStoreStats(project, requestedMonth = '') {
   if (!project.store) return null;
 
-  const month = new Date().toISOString().slice(0, 7).replace('-', ''); // YYYYMM
+  const googleMonth = (requestedMonth || new Date().toISOString().slice(0, 7)).replace('-', ''); // YYYYMM
 
-  const [appleResult, googleResult, appleStatusResult] = await Promise.allSettled([
-    appStoreSales.getAppSalesSummary(project),
-    googlePlayReports.getInstallsOverview(project, month),
+  const [appleResult, googleResult, appleStatusResult, appleHistoryResult] = await Promise.allSettled([
+    appStoreSales.getAppSalesSummary(project, requestedMonth || undefined),
+    googlePlayReports.getInstallsOverview(project, googleMonth),
     appStoreSales.getAppStoreStatus(project),
+    appStoreSales.getAppSalesHistory(project),
   ]);
 
   // status: null = la app no tiene ficha en App Store Connect; undefined = no se pudo consultar.
@@ -123,6 +125,7 @@ async function getStoreStats(project) {
         ? appleResult.value
         : { supported: false, reason: appleResult.reason.message }),
       status: appleStatus,
+      history: appleHistoryResult.status === 'fulfilled' ? appleHistoryResult.value : [],
     },
     google:
       googleResult.status === 'fulfilled'
@@ -161,8 +164,13 @@ router.get('/projects/:id/stats', async (req, res) => {
 router.get('/projects/:id/store-stats', async (req, res, next) => {
   const project = findProject(req.params.id);
   if (!project) return res.status(404).json({ error: 'Proyecto no encontrado' });
+  // Mes opcional (YYYY-MM): solo se acepta ese formato exacto, nunca texto libre.
+  const month = String(req.query.month || '');
+  if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return res.status(400).json({ error: 'Mes no válido (usa YYYY-MM)' });
+  }
   try {
-    res.json(await getStoreStats(project));
+    res.json(await getStoreStats(project, month));
   } catch (err) {
     next(err);
   }
