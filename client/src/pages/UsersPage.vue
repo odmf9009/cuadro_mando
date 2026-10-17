@@ -62,7 +62,7 @@
             >
               Generar contraseña temporal
             </BaseButton>
-            <span v-else-if="project.capabilities" class="muted small">No soportado</span>
+            <span v-else-if="project.hasPasswordReset" class="muted small">No soportado</span>
           </template>
         </BaseTable>
 
@@ -102,11 +102,13 @@ const connectionError = ref(null)
 const actionResult = ref(null)
 const pendingId = ref(null)
 
-const columns = [
+// Columnas base + las extra que declara cada proyecto (project.userColumns).
+const columns = computed(() => [
   { key: 'name', label: 'Nombre', formatter: (v, row) => v || row.nombre || '—' },
   { key: 'email', label: 'Email' },
+  ...(project.value?.userColumns || []),
   { key: 'createdAt', label: 'Alta' },
-]
+])
 
 const activeSegmentLabel = computed(() => {
   const value = route.query.segment

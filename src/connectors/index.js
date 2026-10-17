@@ -1,5 +1,6 @@
 const { getMongoProjectStats } = require('./mongoConnector');
 const { getInvoiceSnapStats } = require('./invoiceSnapConnector');
+const { getFirestoreProjectStats } = require('./firestoreConnector');
 
 // 'none': apps sin backend/base de datos propia (ej. SkillFix, que solo
 // consume la API de YouTube del lado del cliente). No es un error de
@@ -12,6 +13,7 @@ async function getNoBackendStats() {
 const handlers = {
   mongo: getMongoProjectStats,
   postgres: getInvoiceSnapStats,
+  firestore: getFirestoreProjectStats,
   none: getNoBackendStats,
 };
 

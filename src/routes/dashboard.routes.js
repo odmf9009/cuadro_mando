@@ -9,6 +9,7 @@ const {
   setUserPasswordHash,
   UNCLASSIFIED_SEGMENT,
 } = require('../connectors/mongoConnector');
+const { listFirestoreUsers } = require('../connectors/firestoreConnector');
 const { generatePasswordResetLink } = require('../connectors/firebaseAdmin');
 const { generateTempPassword, hashPassword } = require('../services/passwordGenerator');
 const { sendMail, isConfigured: mailerConfigured } = require('../services/mailer');
@@ -25,6 +26,10 @@ const apkUpload = multer({
 
 const router = Router();
 
+// Tipos de proyecto que pueden listar usuarios, y como lo hace cada uno.
+const USER_LIST_TYPES = ['mongo', 'firestore'];
+const userListers = { mongo: listUsers, firestore: listFirestoreUsers };
+
 // Nunca se manda al navegador la config cruda de projects.js: tiene nombres
 // de variables de entorno, condiciones de auth, rutas a credenciales, etc.
 // Esto es solo lo que el SPA necesita para pintar la UI.
@@ -36,7 +41,9 @@ function toSafeProject(project) {
     color: project.color,
     type: project.type,
     capabilities: project.capabilities,
-    hasUsersTab: project.type === 'mongo',
+    hasUsersTab: USER_LIST_TYPES.includes(project.type),
+    userColumns: project.userColumns || [],
+    hasPasswordReset: Boolean(project.auth),
     hasStoreMetrics: Boolean(project.store),
     hasApkDistribution: Boolean(project.apkDistribution && project.apkDistribution.enabled),
     hasUserActivity: project.type === 'mongo' && Boolean(project.userActivity),
@@ -79,7 +86,11 @@ function summarize(statsByProject) {
     if (!stats || !stats.connected) continue;
     connectedCount += 1;
     totalUsers += stats.totalUsers || 0;
-    if (stats.subscriptions) activeSubscriptions += stats.subscriptions.active || 0;
+    // Las suscripciones sin verificar (ej. el "premium" que reporta la propia
+    // app de CardAlert) no se suman: inflarian el total con datos dudosos.
+    if (stats.subscriptions && !stats.subscriptions.unverified) {
+      activeSubscriptions += stats.subscriptions.active || 0;
+    }
   }
 
   return { totalUsers, connectedCount, totalProjects: projects.length, activeSubscriptions };
@@ -150,14 +161,16 @@ router.get('/projects/:id/store-stats', async (req, res, next) => {
 
 router.get('/projects/:id/users', async (req, res) => {
   const project = findProject(req.params.id);
-  if (!project || project.type !== 'mongo') return res.status(404).json({ error: 'No aplica a este proyecto' });
+  if (!project || !USER_LIST_TYPES.includes(project.type)) {
+    return res.status(404).json({ error: 'No aplica a este proyecto' });
+  }
 
   const page = Math.max(1, Number(req.query.page) || 1);
   const search = (req.query.q || '').trim();
   const segment = (req.query.segment || '').trim();
 
   try {
-    const { total, pageSize, users } = await listUsers(project, { page, search, segment });
+    const { total, pageSize, users } = await userListers[project.type](project, { page, search, segment });
     const usersWithFlags = users.map((u) => ({ ...u, resetMethod: resetMethodFor(project, u) }));
 
     res.json({

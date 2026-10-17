@@ -1,7 +1,7 @@
 <template>
   <AppLayout v-if="project" :heading="project.name" :subheading="project.description">
     <RouterLink v-if="project.hasUsersTab" :to="`/project/${project.id}/users`" class="button-link small-button users-link">
-      Ver usuarios{{ project.capabilities ? ' y enviar reset de contraseña' : '' }}
+      Ver usuarios{{ project.hasPasswordReset ? ' y enviar reset de contraseña' : '' }}
     </RouterLink>
 
     <AlertBanner v-if="stats && !stats.connected" type="error">
@@ -46,11 +46,15 @@
       <template v-if="stats.connected">
         <BaseCard title="Suscripciones">
           <template v-if="project.capabilities.subscriptions && stats.subscriptions">
-            <p class="big-number">{{ stats.subscriptions.active.toLocaleString('es') }} <span class="muted small">activas</span></p>
-            <h3 class="panel-subtitle">Por plan</h3>
-            <BreakdownList :data="stats.subscriptions.byPlan" />
-            <h3 class="panel-subtitle">Por estado</h3>
-            <BreakdownList :data="stats.subscriptions.byStatus" />
+            <p class="big-number">{{ stats.subscriptions.active.toLocaleString('es') }} <span class="muted small">{{ stats.subscriptions.activeLabel || 'activas' }}</span></p>
+            <template v-if="hasEntries(stats.subscriptions.byPlan)">
+              <h3 class="panel-subtitle">Por plan</h3>
+              <BreakdownList :data="stats.subscriptions.byPlan" />
+            </template>
+            <template v-if="hasEntries(stats.subscriptions.byStatus)">
+              <h3 class="panel-subtitle">Por estado</h3>
+              <BreakdownList :data="stats.subscriptions.byStatus" />
+            </template>
             <template v-if="stats.subscriptions.revenueByPlan?.length">
               <h3 class="panel-subtitle">Generado por plan</h3>
               <ul class="breakdown-list">
@@ -63,6 +67,7 @@
                 </li>
               </ul>
             </template>
+            <p v-for="note in stats.subscriptions.notes" :key="note" class="muted small subs-note">{{ note }}</p>
           </template>
           <p v-else class="muted small">No tiene suscripciones.</p>
         </BaseCard>
@@ -145,6 +150,8 @@ const apkVersion = ref('')
 const apkNotes = ref('')
 const apkUploading = ref(false)
 const apkResult = ref(null)
+
+const hasEntries = (obj) => Object.keys(obj || {}).length > 0
 
 // Proyecto conectado Y con base de datos propia (KPIs de usuarios y grafico).
 const hasBackendStats = computed(() => Boolean(stats.value?.connected && !stats.value.noBackend))
@@ -233,5 +240,9 @@ async function onUploadApk() {
 
 .apk-result {
   margin-top: 0.8rem;
+}
+
+.subs-note {
+  margin: 0.9rem 0 0;
 }
 </style>

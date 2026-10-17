@@ -15,8 +15,11 @@ const apps = new Map();
 // donde se lance el proceso (terminal, Run Config de IDE, etc.).
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
+// project.firebase = credenciales para LEER datos de Firebase (proyectos
+// type 'firestore'); project.auth.firebase = las mismas credenciales usadas
+// para generar links de reset de contraseña. Si estan las dos, gana la primera.
 function buildCredential(project) {
-  const fb = project.auth && project.auth.firebase;
+  const fb = project.firebase || (project.auth && project.auth.firebase);
   if (!fb) return { error: 'Este proyecto no tiene configuración de Firebase Auth' };
 
   if (fb.serviceAccountPathEnv) {
@@ -69,4 +72,4 @@ async function generatePasswordResetLink(project, email) {
   return getAuth(app).generatePasswordResetLink(email);
 }
 
-module.exports = { generatePasswordResetLink };
+module.exports = { generatePasswordResetLink, getFirebaseApp };

@@ -2,8 +2,11 @@
 // que vive en la carpeta mios/. Agregar un proyecto nuevo = agregar un objeto
 // aqui (mas la variable de entorno correspondiente en .env).
 //
-// type: 'mongo' | 'postgres' | 'none' ('none' = app sin backend/BD propia,
-// solo tiene sentido con un bloque "store" para metricas de tienda)
+// type: 'mongo' | 'postgres' | 'firestore' | 'none'
+//   'firestore' = app sin backend propio cuyos datos viven solo en Firebase
+//                 (usuarios de Auth + plan en Firestore), ver firestoreConnector.js
+//   'none'      = app sin backend/BD propia, solo tiene sentido con un bloque
+//                 "store" para metricas de tienda
 // envVar: nombre de la variable de entorno con la cadena de conexion
 // color: acento visual de la tarjeta (ver public/css/styles.css)
 //
@@ -252,15 +255,37 @@ module.exports = [
     apkDistribution: { enabled: true },
   },
   {
-    // Sin backend propio (solo Firebase, igual que SkillFix). Ya esta en
-    // produccion en Google Play; en Apple fue rechazada y no esta publicada
-    // -> no tiene sentido ofrecer descarga directa (ya se puede bajar de Play).
+    // Sin backend propio: solo Firebase (Auth + Firestore). Ya esta en
+    // produccion en Google Play; en Apple esta rechazada (no publicada), asi
+    // que no tiene sentido ofrecer descarga directa del APK.
     id: 'cardalert',
     name: 'CardAlert',
     description: 'Recordatorios de pago y seguimiento de tarjetas y saldos',
-    type: 'none',
+    type: 'firestore',
     color: '#ef4444',
-    capabilities: { activeUsers: false, subscriptions: false, platforms: false },
+    firebase: { serviceAccountPathEnv: 'CARDALERT_FIREBASE_SERVICE_ACCOUNT_PATH' },
+    fields: {
+      usersCollection: 'users',
+      planField: 'planType',
+      // Cuentas con Premium gratis hardcodeadas en la app (dev/VIP): no son
+      // suscriptores. Lista separada por comas, en .env (no se versiona).
+      complimentaryEmailsEnv: 'CARDALERT_COMPLIMENTARY_EMAILS',
+    },
+    // Filtros clicables por plan. Premium = lo que la app reporta (sin verificar).
+    segments: {
+      field: 'planType',
+      options: [
+        { value: 'premium', label: 'Premium (según la app)' },
+        { value: 'free', label: 'Gratis' },
+      ],
+      unclassifiedLabel: 'Sin copia en la nube',
+    },
+    // Columnas extra en la lista de usuarios (claves que devuelve el conector).
+    userColumns: [
+      { key: 'provider', label: 'Acceso' },
+      { key: 'plan', label: 'Plan' },
+    ],
+    capabilities: { activeUsers: true, subscriptions: true, platforms: false },
     store: {
       androidPackageName: 'com.venturesflstudio.card_alert',
       iosBundleId: 'com.venturesflstudio.cardAlert',

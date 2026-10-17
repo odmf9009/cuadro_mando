@@ -198,12 +198,18 @@ credenciales (cada tarjeta muestra el motivo en vez de un número).
   tiene una API REST simple de "instalaciones totales por app". El mecanismo
   estable es que Play Console exporte reportes CSV diarios a un bucket de
   Cloud Storage. Pasos:
-  1. Play Console → tu cuenta de desarrollador → *Configuración* → *Descargar
-     informes* → vincular/crear un bucket de Cloud Storage.
-  2. Crea una cuenta de servicio de Google Cloud con rol *Storage Object
-     Viewer* sobre ese bucket, descarga su JSON.
+  1. Play Console → *Descargar informes* (Download reports) → junto al
+     encabezado de cualquier sección, *Copiar URI de Cloud Storage*. El bucket
+     (`pubsite_prod_rev_<id>`) ya lo crea y administra Google: no hay que
+     crearlo ni darle roles IAM.
+  2. En Google Cloud Console crea una cuenta de servicio (IAM y administración
+     → Cuentas de servicio), genera una clave JSON y copia su correo
+     (`nombre@proyecto.iam.gserviceaccount.com`). Luego, en Play Console →
+     *Usuarios y permisos* → *Invitar usuarios nuevos*, pega ese correo con los
+     permisos globales *Ver información de la aplicación* (informes de
+     instalaciones) y *Ver datos financieros* (informes de ingresos).
   3. En `.env`: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` (ruta al JSON) y
-     `GOOGLE_PLAY_REPORTS_BUCKET` (nombre del bucket, sin `gs://`).
+     `GOOGLE_PLAY_REPORTS_BUCKET` (el URI copiado, sin `gs://`).
   4. Los reportes tardan ~48h en aparecer la primera vez; hasta entonces la
      tarjeta muestra "aún no publicado".
 

@@ -316,6 +316,7 @@ async function setUserPasswordHash(project, userId, fieldName, hash) {
 }
 
 module.exports = {
+  buildDailySeries,
   getMongoProjectStats,
   listUsers,
   findUserById,
