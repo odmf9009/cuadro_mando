@@ -66,12 +66,16 @@
 //   completedStatuses   -> valores de "status" que cuentan como trabajo realizado
 //   technicianUserType  -> valor de segments.field que identifica a un tecnico
 //
+// hidden (opcional): true = el proyecto sigue declarado aqui pero NO se carga:
+// no sale en el menu, el resumen, ni la subida de APK. Para reactivarlo, quitar
+// la linea. Ver el filtro al final de este archivo.
+//
 // apkDistribution (opcional): { enabled: true } habilita subir/reemplazar
 // un .apk desde la pagina del proyecto, servido en una URL publica fija
 // (/downloads/<id>.apk) para distribuir fuera de Google Play (ej. mientras
 // se espera la aprobacion). Ver src/services/apkStorage.js.
 
-module.exports = [
+const allProjects = [
   {
     id: 'habanera',
     name: 'Habanera',
@@ -200,6 +204,7 @@ module.exports = [
   },
   {
     id: 'dealsnap',
+    hidden: true, // = PromOff en las tiendas; oculto por ahora
     name: 'DealSnap',
     description: 'Ofertas y seguimiento de precios',
     type: 'mongo',
@@ -220,6 +225,7 @@ module.exports = [
   },
   {
     id: 'kambalache',
+    hidden: true, // oculto por ahora (sin BD en el servidor)
     name: 'Kambalache',
     description: 'Marketplace de locales y pedidos',
     type: 'mongo',
@@ -296,6 +302,7 @@ module.exports = [
     // Sin backend propio: solo consume APIs externas por HTTP del lado del
     // cliente, sin Firebase ni Mongo.
     id: 'tofast',
+    hidden: true, // oculto por ahora
     name: 'ToFast',
     description: 'Radar de oportunidades en anuncios de Revolico (precio/palabra clave)',
     type: 'none',
@@ -309,3 +316,5 @@ module.exports = [
     apkDistribution: { enabled: true },
   },
 ];
+
+module.exports = allProjects.filter((project) => !project.hidden);
