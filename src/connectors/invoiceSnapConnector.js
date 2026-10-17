@@ -90,7 +90,8 @@ async function getInvoiceSnapStats(project) {
       // y pg lo devuelve como string; solo se pasa a Number al armar la
       // respuesta, una unica vez, para que el navegador lo formatee.
       pool.query(`
-        SELECT provider, currency, environment, ROUND(COALESCE(SUM("pricePaid"), 0), 2) AS total
+        SELECT provider, currency, environment, COUNT(*)::int AS purchases,
+               ROUND(COALESCE(SUM("pricePaid"), 0), 2) AS total
         FROM credit_purchases
         WHERE status = 'COMPLETED'
         GROUP BY provider, currency, environment
@@ -149,6 +150,7 @@ async function getInvoiceSnapStats(project) {
       revenue: revenueRes.rows.map((r) => ({
         currency: r.currency,
         total: Number(r.total),
+        purchases: r.purchases,
         source: sourceOf(r.provider),
         isTestMode: r.environment !== 'live',
       })),

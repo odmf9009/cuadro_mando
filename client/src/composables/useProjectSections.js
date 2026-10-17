@@ -30,6 +30,7 @@ function formatPeriod(period) {
   })
 }
 const entriesOf = (obj) => Object.entries(obj || {})
+const plural = (n, one, many) => `${fmtInt(n)} ${n === 1 ? one : many}`
 const toDetails = (obj) => entriesOf(obj).map(([label, count]) => ({ label, value: fmtInt(count) }))
 
 const SRC = {
@@ -71,6 +72,7 @@ function purchasesRows(stats, sourceKeys) {
     label: 'Compras de créditos',
     state: 'ok',
     value: formatMoney(r.total, r.currency),
+    hint: r.purchases ? plural(r.purchases, 'compra', 'compras') : '',
     tag: r.isTestMode ? 'PRUEBA' : '',
     tagTitle: r.isTestMode ? PENDING_TEST_HINT : '',
     source: SRC.db,
@@ -236,6 +238,7 @@ function ownSection(stats) {
           label: 'Compras de créditos',
           state: 'ok',
           value: formatMoney(r.total, r.currency),
+          hint: r.purchases ? plural(r.purchases, 'compra', 'compras') : '',
           tag: r.isTestMode ? 'PRUEBA' : '',
           tagTitle: r.isTestMode ? PENDING_TEST_HINT : '',
           source: SRC.db,

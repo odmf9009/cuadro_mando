@@ -1,349 +1,299 @@
 # Arquitectura de Cuadro de Mando
 
-Documento técnico de referencia: stack, estructura de carpetas, y qué hace
-cada módulo del backend y cada componente/store/página del frontend. El
-`README.md` cubre instalación y uso; este documento cubre "cómo está hecho".
+Documento técnico de referencia: stack, estructura, contratos de datos, patrones de
+diseño y catálogo de componentes. El `README.md` cubre instalación y uso; el
+`CLAUDE.md` resume las reglas de trabajo; este documento cubre "cómo está hecho y por qué".
 
-## 1. Resumen de la arquitectura
+## 1. Resumen
 
 ```
-┌─────────────────────┐        HTTP (fetch, cookie de sesión)       ┌──────────────────────┐
-│   client/  (Vue 3)   │ ───────────────────────────────────────────▶│   src/  (Express)     │
-│   SPA servida como   │◀─────────────────────────────────────────── │   API JSON + sesión   │
-│   archivos estáticos │              JSON                            │                       │
-└─────────────────────┘                                              └──────────┬────────────┘
-                                                                                  │
-                                                                    lee/escribe   │
-                                                                                  ▼
-                                                        MongoDB / PostgreSQL de cada proyecto
-                                                        (Habanera, CurbRadar, FixRadar, DealSnap,
-                                                         Kambalache, Invoice Snap) + Firebase Auth
-                                                         + reportes de Google Play / App Store
+┌──────────────────────┐   HTTP (fetch, cookie de sesión)   ┌───────────────────────┐
+│  client/ (Vue 3 SPA)  │ ─────────────────────────────────▶│  src/ (Express)        │
+│  estáticos en prod    │◀───────────────────────────────── │  API JSON + sesión     │
+└──────────────────────┘              JSON                  └───────────┬───────────┘
+                                                                         │ lee (y, en reset de contraseña, escribe)
+        MongoDB (Habanera, CurbRadar, FixRadar, DealSnap, Kambalache) · PostgreSQL (Invoice Snap)
+        Firebase Auth + Firestore (CardAlert) · App Store Connect API · informes de Google Play
 ```
 
-- **Backend** (`src/`): Express. Expone una API JSON bajo `/api/*` y las
-  rutas de sesión (`/api/auth/*`). No genera HTML — eso lo hace el SPA.
-- **Frontend** (`client/`): Vue 3 + Vite. Aplicación de una sola página
-  (SPA) con enrutado propio (Vue Router), estado compartido (Pinia) y una
-  librería de componentes reutilizables.
-- **Comunicación**: fetch con `credentials: 'include'`. En desarrollo, Vite
-  hace de proxy de `/api` hacia Express (mismo origen efectivo, sin CORS).
-  En producción, Express sirve el build de Vue y la API desde el mismo
-  puerto — son literalmente el mismo origen.
-- **Autenticación**: sesión de servidor (`express-session`, cookie
-  `httpOnly`). El SPA no guarda ningún token; en cada arranque pregunta
-  `GET /api/auth/me` para saber si la cookie todavía es válida.
+- **Backend** (`src/`): Express. API JSON bajo `/api/*`, sesión por cookie, descarga pública de APK en `/downloads/:id.apk`. No genera HTML.
+- **Frontend** (`client/`): Vue 3 + Vite, SPA con Vue Router y Pinia. En producción Express sirve `client/dist` y la API desde el mismo puerto (mismo origen, sin CORS). En desarrollo Vite hace proxy de `/api`.
+- **Auth**: sesión de servidor (`express-session`, `httpOnly`). El SPA no guarda tokens; al arrancar pregunta `GET /api/auth/me`.
+- **Idea central**: el panel muestra datos reales de cada app **agrupados por su ORIGEN** (Apple, Google, pagos propios) y cada cifra dice de dónde sale (ver §7).
 
-## 2. Stack tecnológico
+## 2. Stack
 
 | Capa | Tecnología | Por qué |
 |---|---|---|
-| Servidor HTTP / API | Express 4 | Ya estaba, simple, suficiente para una API JSON pequeña |
-| Sesión | `express-session` (memoria) | Un solo usuario admin, sin necesidad de un store externo (Redis, etc.) |
-| MongoDB | driver nativo `mongodb` (sin Mongoose) | Cada proyecto tiene su propio esquema Mongoose; conectarse con el driver nativo evita duplicar/pisar esos modelos y permite consultas genéricas por nombre de campo |
-| PostgreSQL | `pg` (SQL crudo) | Solo lo usa Invoice Snap; no vale la pena traer Prisma solo para leer |
-| Firebase Auth | `firebase-admin` (API modular v13+) | Generar links de "restablecer contraseña" sin tocar el backend de cada app |
-| Hash de contraseñas | `bcryptjs` | Mismo algoritmo que ya usan Habanera/DealSnap/Kambalache/FixRadar — el hash generado aquí es compatible con su login sin cambiar nada allá |
-| Email saliente | `nodemailer` | Opcional; si no hay SMTP configurado, el link/contraseña se muestra en pantalla en vez de enviarse |
-| Métricas Google Play | `@google-cloud/storage` + `csv-parse` | Lee los reportes CSV que Play Console exporta a un bucket (no hay API REST simple de instalaciones) |
-| Métricas App Store | `jsonwebtoken` (JWT ES256) + `fetch` | Sales Reports API de App Store Connect |
-| **Frontend** | **Vue 3** (`<script setup>`) | Composition API, componentes pequeños y tipados por props |
-| Build tool | **Vite** | Dev server con HMR instantáneo, build de producción optimizado |
-| Enrutado | **Vue Router 4** | Rutas por proyecto (`/project/:id`), guard de autenticación |
-| Estado global | **Pinia** | Store de sesión (`auth`) y de catálogo de proyectos (`projects`), evita pedir lo mismo dos veces |
-| Gráficos | **Chart.js** (`chart.js/auto`) | Igual que antes, ahora envuelto en un componente Vue reutilizable |
-| Estilos | CSS plano con variables (`:root { --bg, --card, ... }`) | Mismo tema oscuro de siempre, portado tal cual — sin Tailwind/UI kit para no añadir una dependencia grande a un dashboard interno pequeño |
+| API | Express 4 | Simple y suficiente |
+| Sesión | `express-session` (memoria) | Un solo admin; sin Redis |
+| MongoDB | driver nativo `mongodb` (sin Mongoose) | Cada app tiene su esquema; el driver nativo permite consultas genéricas por nombre de campo sin duplicar modelos |
+| PostgreSQL | `pg` (SQL crudo) | Solo Invoice Snap (su esquema es Prisma, aquí solo se lee) |
+| Firebase | `firebase-admin` v14 (API modular) + `@google-cloud/firestore` | Auth (links de reset, lista de usuarios) y Firestore (plan de CardAlert) |
+| Contraseñas | `bcryptjs` | Compatible con el login de las apps (bcrypt.compare valida cualquier hash válido) |
+| Email | `nodemailer` (opcional) | Sin SMTP el link/contraseña se muestra en pantalla |
+| Google Play | `@google-cloud/storage` + `csv-parse` | Informes CSV que Play Console exporta a un bucket |
+| App Store | `jsonwebtoken` (JWT ES256) + `fetch` | Sales Reports API y gestión de versiones de App Store Connect |
+| Subida de APK | `multer` (memoria, 300 MB) | Distribución directa fuera de Google Play |
+| Frontend | Vue 3 `<script setup>`, Vite, Vue Router 4, Pinia, Chart.js | Composición de componentes pequeños y reutilizables |
+| Estilos | CSS plano con variables (`:root`) + `<style scoped>` | Tema oscuro, sin UI kit |
 
 ## 3. Estructura de carpetas
 
 ```
 cuadro_mando/
-├── package.json              # scripts raíz (start, dev:api, dev:client, build)
-├── .env / .env.example
-├── secrets/                  # credenciales de Firebase (gitignored)
+├── CLAUDE.md / ARCHITECTURE.md / README.md
+├── .env / .env.local (gitignored)   .env.example   secrets/ (gitignored)   uploads/ (gitignored)
 │
-├── src/                       # ---------- BACKEND (Express) ----------
-│   ├── server.js               # entry point: carga .env, arranca app.js
-│   ├── app.js                   # configura Express: sesión, rutas, sirve client/dist en prod
-│   ├── config/
-│   │   └── projects.js           # registro central: un objeto por proyecto (ver §4.1)
+├── src/                              # ---------- BACKEND ----------
+│   ├── server.js                      # entry: carga .env (+ .env.local si DB_MODE=local)
+│   ├── app.js                         # Express: sesión, /downloads/:id.apk (público), /api, sirve client/dist
+│   ├── config/projects.js             # REGISTRO CENTRAL de proyectos (ver §4.1)
 │   ├── connectors/
-│   │   ├── index.js               # despacha por project.type, nunca deja que un error tumbe la API
-│   │   ├── mongoConnector.js       # stats + listUsers + setUserPasswordHash (genérico, Mongo)
-│   │   ├── invoiceSnapConnector.js  # stats de Invoice Snap (Postgres, con suscripciones/ingresos)
-│   │   ├── firebaseAdmin.js         # genera el link de reset de contraseña de Firebase Auth
+│   │   ├── index.js                    # despacha por project.type; un error nunca tumba la API
+│   │   ├── mongoConnector.js           # stats, listUsers, getUserActivity, setUserPasswordHash
+│   │   ├── invoiceSnapConnector.js     # Postgres: suscripciones y compras atribuidas por origen
+│   │   ├── firestoreConnector.js       # Firebase Auth + Firestore (CardAlert)
+│   │   ├── firebaseAdmin.js            # apps de firebase-admin por proyecto, links de reset
 │   │   └── stores/
-│   │       ├── googlePlayReports.js  # instalaciones desde reportes CSV en Cloud Storage
-│   │       └── appStoreSales.js       # ventas/unidades desde App Store Connect Sales Reports API
-│   ├── services/
-│   │   ├── mailer.js               # SMTP opcional (nodemailer)
-│   │   └── passwordGenerator.js     # contraseña temporal random + hash bcrypt
-│   ├── middleware/
-│   │   └── auth.js                # requireLogin: 401 JSON si no hay sesión
-│   └── routes/
-│       ├── auth.routes.js          # /api/auth/me, /login, /logout
-│       └── dashboard.routes.js      # todo lo demás bajo /api (ver §5, contrato de la API)
+│   │       ├── appStoreSales.js        # ventas/proceeds + estado de la app en App Store Connect
+│   │       └── googlePlayReports.js    # instalaciones desde el bucket de informes de Play
+│   ├── services/ (mailer, passwordGenerator, apkStorage)
+│   ├── middleware/auth.js              # requireLogin
+│   └── routes/ (auth.routes.js, dashboard.routes.js)
 │
-└── client/                    # ---------- FRONTEND (Vue 3 + Vite) ----------
-    ├── index.html
-    ├── vite.config.js           # proxy de /api -> :4000 en dev
-    ├── dist/                     # build de producción (generado, gitignored)
-    └── src/
-        ├── main.js                 # createApp + Pinia + Router + estilos globales
-        ├── App.vue                  # shell raíz: espera a checkSession() antes de pintar
-        ├── style.css                 # tema oscuro (variables CSS, clases compartidas)
-        ├── router/
-        │   └── index.js               # rutas + guard de autenticación (ver §6.1)
-        ├── stores/                   # Pinia (ver §6.2)
-        │   ├── auth.js
-        │   └── projects.js
-        ├── api/                      # capa HTTP (ver §6.3)
-        │   ├── http.js
-        │   ├── auth.js
-        │   └── projects.js
-        ├── composables/
-        │   └── useConfirm.js          # confirmación antes de acciones sensibles
-        ├── components/
-        │   ├── base/                  # ---- LIBRERÍA DE COMPONENTES REUTILIZABLES (ver §7) ----
-        │   │   ├── BaseButton.vue
-        │   │   ├── BaseInput.vue
-        │   │   ├── BaseSelect.vue
-        │   │   ├── BaseCard.vue
-        │   │   ├── BaseTable.vue
-        │   │   ├── Pagination.vue
-        │   │   ├── StatCard.vue
-        │   │   ├── StatusBadge.vue
-        │   │   ├── LiveDot.vue
-        │   │   ├── AlertBanner.vue
-        │   │   ├── BreakdownList.vue
-        │   │   └── LineChart.vue
-        │   ├── layout/                # AppLayout, Sidebar, Topbar (ver §8)
-        │   │   ├── AppLayout.vue
-        │   │   ├── Sidebar.vue
-        │   │   └── Topbar.vue
-        │   └── ProjectCard.vue        # componente compuesto (usa StatusBadge + LiveDot)
-        └── pages/                     # una por ruta (ver §9)
-            ├── LoginPage.vue
-            ├── OverviewPage.vue
-            ├── ProjectDetailPage.vue
-            ├── UsersPage.vue
-            └── NotFoundPage.vue
+└── client/src/                       # ---------- FRONTEND ----------
+    ├── main.js · App.vue · style.css
+    ├── router/index.js                # rutas + guard + scrollBehavior (#anclas)
+    ├── stores/ (auth.js, projects.js)
+    ├── api/ (http.js, auth.js, projects.js)
+    ├── composables/
+    │   ├── useConfirm.js
+    │   ├── useDebounce.js             # useDebounceFn
+    │   └── useProjectSections.js      # LÓGICA de "qué cifra va en qué tarjeta y de dónde sale"
+    ├── components/
+    │   ├── base/                      # genéricos, sin lógica de negocio (ver §8.1)
+    │   ├── layout/ (AppLayout, Sidebar, Topbar)
+    │   ├── ProjectCard.vue            # tarjeta del resumen general
+    │   ├── StoreCard.vue              # tarjeta de UN origen (Apple / Google / propios)
+    │   ├── ProjectUsers.vue           # listado de usuarios de un proyecto (buscador, segmentos, acciones)
+    │   └── RequestStatusBadge.vue     # estados de una incidencia de FixRadar
+    └── pages/ (LoginPage, OverviewPage, ProjectDetailPage, UserDetailPage, NotFoundPage)
 ```
 
-## 4. Backend en detalle
+## 4. Backend
 
-### 4.1 `src/config/projects.js` — el registro central
+### 4.1 `src/config/projects.js` — registro central
 
-Es la única fuente de verdad sobre "qué proyectos existen y cómo tratarlos".
-Cada entrada es un objeto plano (no hay clases) con esta forma:
+Única fuente de verdad de "qué proyectos existen y cómo tratarlos". Ningún conector ni componente
+tiene el nombre de un proyecto escrito: todos reciben el objeto y obedecen sus campos.
+**Agregar un proyecto = agregar un objeto aquí** (+ su variable en `.env`); el frontend se alimenta de `GET /api/projects`.
 
 ```js
 {
-  id, name, description, color,   // identidad + estética (el color pinta el borde de la tarjeta)
-  type: 'mongo' | 'postgres',
-  envVar: 'HABANERA_MONGO_URI',    // que variable de .env tiene la cadena de conexión
-  fields: { ... },                 // solo Mongo: nombres de campo (createdAt, isOnline, etc.)
-  capabilities: { activeUsers, subscriptions, platforms }, // que puede mostrar honestamente
-  auth: { firebase?, bcrypt? },    // opcional: habilita reset de contraseña
-  store: { androidPackageName, iosBundleId, appleAppId },  // opcional: métricas de tienda
+  id, name, description, color,
+  type: 'mongo' | 'postgres' | 'firestore' | 'none',   // 'none' = app sin backend propio
+  hidden: true,                  // sigue declarado pero se filtra al exportar (no sale en ningún sitio)
+  envVar: 'X_MONGO_URI',         // mongo/postgres: variable con la cadena de conexión
+  fields: { ... },               // mongo: collection, createdAtField, lastActiveField, onlineField, idIsString...
+                                 // firestore: usersCollection, planField, complimentaryEmailsEnv
+  capabilities: { activeUsers, subscriptions, platforms },
+  segments: { field, options: [{value,label}], unclassifiedLabel },  // tarjetas clicables que filtran usuarios
+  userColumns: [{ key, label }], // columnas extra en la tabla de usuarios
+  userActivity: {...},           // mongo: habilita la ficha de usuario (incidencias/trabajos), ver §4.2
+  auth: { firebase?, bcrypt? },  // reset de contraseña (por usuario, con `condition` opcional)
+  firebase: { serviceAccountPathEnv },   // firestore: credenciales para LEER datos
+  store: { androidPackageName, iosBundleId, appleAppId },   // métricas y estado de tienda
+  apkDistribution: { enabled: true },    // subir APK y servir /downloads/<id>.apk
 }
 ```
 
-Ningún conector tiene hardcodeado el nombre de un proyecto: todos reciben
-este objeto y actúan según sus campos. Agregar un proyecto nuevo = agregar
-un objeto aquí, no tocar código de conectores ni del frontend.
+Tipos: `mongo` (Habanera, CurbRadar, FixRadar, DealSnap*, Kambalache*), `postgres` (Invoice Snap),
+`firestore` (CardAlert), `none` (SkillFix, ToFast*). *Ocultos hoy: DealSnap, Kambalache, ToFast.
 
-### 4.2 Conectores (`src/connectors/`)
+### 4.2 Conectores
 
-- **`mongoConnector.js`**: el más usado. Abre (y cachea) una conexión
-  `MongoClient` por URI. Expone:
-  - `getMongoProjectStats(project)` → totales, altas por día, activos,
-    "en línea ahora" — todo opcional según `project.fields`.
-  - `listUsers(project, {search, page, pageSize})` → para la pestaña
-    Usuarios, nunca proyecta campos de contraseña.
-  - `findUserById(project, id)`, `setUserPasswordHash(project, id, field, hash)`
-    → usados por el flujo de reset de contraseña "bcrypt".
-- **`invoiceSnapConnector.js`**: siete queries SQL en paralelo (usuarios,
-  altas, serie de 30 días, suscripciones activas por estado/plan,
-  plataformas, ingresos). Es el único proyecto con datos reales de
-  suscripciones/ingresos, así que no intenta ser genérico.
-- **`firebaseAdmin.js`**: inicializa una app de `firebase-admin` con nombre
-  por proyecto (dos proyectos Firebase distintos = dos apps), usando o bien
-  un archivo de cuenta de servicio (`serviceAccountPathEnv`) o credenciales
-  sueltas (`firebaseEnv`). Expone `generatePasswordResetLink(project, email)`.
-- **`stores/googlePlayReports.js`** y **`stores/appStoreSales.js`**: cada
-  uno resuelve `{ supported: false, reason }` si faltan credenciales, sin
-  lanzar excepción — así una tarjeta sin configurar nunca rompe la página.
-- **`index.js`**: `getProjectStats(project)` elige el conector según
-  `project.type` y envuelve cualquier excepción en
-  `{ connected: false, error }`. Es el único punto por el que pasan todas
-  las lecturas de stats.
+Contrato común: `getProjectStats(project)` → ver §5.2. Un conector nunca lanza hacia la API: `connectors/index.js`
+convierte cualquier excepción en `{ connected:false, error }`.
 
-### 4.3 `src/routes/dashboard.routes.js` — la API
+- **`mongoConnector.js`**: una conexión cacheada por URI. `getMongoProjectStats`, `listUsers` (proyección que
+  excluye contraseñas/tokens; si hay `userActivity` añade `postedCount`/`jobsCount` por usuario con DOS consultas
+  agrupadas sobre los ids de la página), `getUserActivity` (ficha: incidencias publicadas y, si es técnico, trabajos
+  completados; lista blanca de campos del usuario), `findUserById`, `setUserPasswordHash`.
+- **`invoiceSnapConnector.js`**: SQL en paralelo. Atribuye por `provider` (`app_store`→apple, `google_play`→google,
+  `stripe`→web, `manual`→other): `subscriptions.bySource`, `revenue[].source`. El precio de las suscripciones NO está
+  en la BD: el "generado por plan" sale del payload crudo de Stripe en `webhook_events`, y siempre marca `isTestMode`.
+  Dinero en `numeric` hasta el último paso (`Number()` una sola vez).
+- **`firestoreConnector.js`**: usuarios desde Firebase Auth, plan desde `users/{uid}.planType`. NUNCA lee las
+  subcolecciones de tarjetas/pagos. El plan lo escribe la propia app: se marca `unverified` y no se suma al total global.
+- **`firebaseAdmin.js`**: una app de firebase-admin por proyecto; `getFirebaseApp(project)` acepta `project.firebase`
+  o `project.auth.firebase`.
+- **`stores/appStoreSales.js`**: `getAppSalesSummary` (informe MENSUAL; cae al mes anterior si el actual está vacío) y
+  `getAppStoreStatus` (estado de la versión: si hay una publicada se informa esa y, aparte, la más nueva).
+- **`stores/googlePlayReports.js`**: instalaciones desde `installs/installs_<pkg>_<YYYYMM>_overview.csv`. Un 403 de
+  Cloud Storage se traduce a un mensaje claro (no se muestran rutas internas ni correos).
 
-Contiene también dos funciones de dominio que no ameritan su propio
-archivo: `resetMethodFor(project, user)` (decide si a un usuario le aplica
-reset por Firebase, por bcrypt, o ninguno — soporta proyectos mixtos como
-FixRadar) y `toSafeProject(project)` (filtra la config antes de mandarla al
-navegador: nunca se exponen nombres de variables de entorno, rutas a
-credenciales, etc.).
+### 4.3 `routes/dashboard.routes.js`
 
-### 4.4 `src/app.js` — cableado de Express
+Además de las rutas (§5.1) contiene `toSafeProject` (qué ve el navegador de cada proyecto; nunca variables de entorno,
+rutas ni identificadores de tienda: solo `store.hasAppleListing/hasAndroidListing`), `resetMethodFor` (Firebase, bcrypt o
+ninguno, por usuario) y `getStoreStats` (Apple + Google + estado de Apple en `Promise.allSettled`: una tienda caída no
+tumba a la otra).
 
-Orden de middleware (importa el orden):
-1. `express.json()` / `express.urlencoded()`
-2. `express-session`
-3. `authRoutes` (login/logout, sin exigir sesión)
-4. `requireLogin` + `dashboardRoutes` montados en `/api`
-5. Si existe `client/dist/index.html` → sirve el build de Vue + catch-all
-   `app.get('*', ...)` para que el enrutado de Vue Router funcione al
-   recargar la página en cualquier ruta (ej. `/project/habanera`).
-6. Si no existe el build (desarrollo) → responde un texto plano en `/`
-   recordando correr `client` aparte.
+### 4.4 `app.js` y `server.js`
 
-### 4.5 `src/server.js` — entry point y `DB_MODE`
+Orden en `app.js`: json/urlencoded → sesión → `/downloads/:id.apk` (público) → `authRoutes` → `requireLogin` + `/api` →
+estáticos de `client/dist` + catch-all para Vue Router. `server.js` carga `.env` y, si `DB_MODE=local`, encima `.env.local`
+con `override:true` (solo las claves que traiga). Todas las rutas a archivos se anclan a `__dirname`, nunca a `process.cwd()`.
 
-Antes de requerir `app.js`, carga el entorno en dos pasadas con `dotenv`:
+## 5. Contratos
 
-```js
-dotenv.config();                                    // .env (base: hoy, produccion)
-if (process.env.DB_MODE === 'local') {
-  dotenv.config({ path: '.env.local', override: true }); // encima, solo las claves que traiga
-}
-```
-
-Esto permite tener un solo `.env` "de verdad" (con las URIs de producción)
-y un `.env.local` chiquito que solo lista las excepciones que querés
-apuntar a tu máquina — sin duplicar el archivo completo ni tener que
-recordar qué valor iba en cada lado. Ver README → "Alternar entre local y
-remoto".
-
-## 5. Contrato de la API
-
-Todas las rutas salvo `login`/`me` exigen sesión (401 JSON si no la hay).
+### 5.1 API (todas salvo login/me y `/downloads` exigen sesión; 401 JSON si no)
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| GET | `/api/auth/me` | `{ authenticated, username }` — para saber si la cookie sigue viva |
-| POST | `/api/auth/login` | `{ username, password }` → `{ ok, username }` o 401 |
-| POST | `/api/auth/logout` | Destruye la sesión |
-| GET | `/api/projects` | Lista de proyectos "seguros" (sin secretos) — alimenta el sidebar |
-| GET | `/api/overview` | `{ stats: {porId}, summary }` — el resumen general |
-| GET | `/api/projects/:id/stats` | Stats de un proyecto (usuarios, gráfico, suscripciones...) |
-| GET | `/api/projects/:id/store-stats` | Instalaciones/ventas de Google Play / App Store (o `null` si no aplica) |
-| GET | `/api/projects/:id/users?page=&q=` | Lista paginada de usuarios + `resetMethod` por usuario |
-| POST | `/api/projects/:id/users/:userId/send-reset` | Genera (y opcionalmente envía) el link de Firebase |
-| POST | `/api/projects/:id/users/:userId/set-temp-password` | Genera contraseña temporal + hash bcrypt |
+| GET | `/api/auth/me` · POST `/api/auth/login` · POST `/api/auth/logout` | Sesión |
+| GET | `/api/projects` | Proyectos "seguros" (sidebar y decisiones de UI) |
+| GET | `/api/overview` | `{ stats:{porId}, summary }` |
+| GET | `/api/projects/:id/stats` | Stats del proyecto (§5.2) |
+| GET | `/api/projects/:id/store-stats` | Apple + Google (§5.3) o `null` |
+| GET | `/api/projects/:id/users?page=&q=&segment=` | Lista paginada (mongo y firestore) + `resetMethod` |
+| GET | `/api/projects/:id/users/:userId/activity` | Ficha: incidencias y trabajos (solo con `userActivity`) |
+| POST | `/api/projects/:id/users/:userId/send-reset` · `/set-temp-password` | Reset de contraseña |
+| GET/POST | `/api/projects/:id/apk` | Info / subida del APK (solo con `apkDistribution`) |
+| GET | `/downloads/:id.apk` | Descarga pública del último APK subido (URL estable) |
 
-## 6. Frontend — núcleo de la aplicación
+`toSafeProject`: `id, name, description, color, type, capabilities, hasUsersTab, userColumns, hasPasswordReset,
+hasStoreMetrics, store:{hasAppleListing,hasAndroidListing}, hasApkDistribution, hasUserActivity, segments`.
 
-### 6.1 Router (`client/src/router/index.js`)
+### 5.2 Forma de `stats` (normalizada; los conectores solo rellenan lo que saben)
 
-Cinco rutas: `login` (pública), `overview`, `project/:id`, `project/:id/users`,
-y un catch-all `not-found`. Un único `router.beforeEach` hace de guard:
-llama `checkSession()` la primera vez que se necesita, y redirige a `login`
-si la ruta no es pública y no hay sesión (o al revés, si ya hay sesión y se
-intenta entrar a `login`).
+```
+{ connected, error?, noBackend?,
+  totalUsers, newUsers7d, newUsers30d, activeUsers, activeLabel, onlineUsers, onlineLabel,
+  chartSeries:[{day,count}], segments?:{items:[{value,label,count}]},
+  subscriptions?: { active, activeLabel?, byStatus, byPlan,
+                    bySource?: { apple|google|web|other: { active, byPlan } },   // solo si el conector sabe quién cobró
+                    revenueByPlan:[{plan,currency,total,isTestMode}],
+                    sourceLabel?, unverified?, notes? },
+  revenue?: [{ currency, total, purchases, source, isTestMode }] }
+```
 
-### 6.2 Stores de Pinia (`client/src/stores/`)
+### 5.3 Forma de `store-stats`
 
-- **`auth.js`**: `{ username, checked }`. `checked` evita el parpadeo de
-  "se ve el login un instante" mientras se resuelve la primera llamada a
-  `/api/auth/me`. Acciones: `checkSession`, `login`, `logout`.
-- **`projects.js`**: `{ items, loaded }`. Se carga una sola vez
-  (`load()` es idempotente) y la comparten el sidebar y todas las páginas
-  vía `byId(id)`.
+```
+{ apple:  { supported, month, units, proceeds, status?: {state,label,tone,version,next?} | null | undefined, reason?, note? },
+  google: { supported, month, totalInstalls, totalUninstalls, reason?, note? } }
+```
+`status: null` = la app no tiene ficha en App Store Connect; `undefined` = no se pudo consultar.
 
-### 6.3 Capa de API (`client/src/api/`)
+## 6. Frontend: núcleo
 
-- **`http.js`**: wrapper sobre `fetch`. Siempre manda `credentials:
-  'include'` (para que viaje la cookie de sesión), serializa/deserializa
-  JSON, y normaliza errores en una clase `ApiError` con `.status` —así los
-  componentes solo hacen `catch (err) { err.message }`.
-- **`auth.js`** / **`projects.js`**: una función por endpoint de la tabla
-  del §5. Ningún componente llama a `fetch` directo, siempre pasa por aquí.
+- **Router**: `/login` (pública), `/`, `/project/:id`, `/project/:id/users/:userId` y catch-all. `/project/:id/users` **redirige**
+  a `/project/:id#usuarios` conservando `?segment=` (el listado vive dentro de la página del proyecto). `scrollBehavior`
+  baja suave a los `#hash`. Un único `beforeEach` comprueba la sesión.
+- **Stores**: `auth` (`username`, `checked`) y `projects` (`items`, `loaded`; `load()` idempotente, `byId`).
+- **API**: `http.js` (fetch con cookie, errores normalizados en `ApiError`, `postFormData`) y una función por endpoint en
+  `api/projects.js`. Ningún componente llama a `fetch` directo.
 
-## 7. Librería de componentes base (`client/src/components/base/`)
+## 7. Modelo de datos por ORIGEN (la regla de diseño más importante)
 
-Esto es lo que pediste explícitamente: componentes genéricos, sin lógica de
-negocio, que no saben qué es un "proyecto" ni una "suscripción" — solo
-reciben datos por props y emiten eventos. Se reutilizan en todas las
-páginas.
+Toda cifra pertenece a un origen y se muestra con su etiqueta (`SourceTag`): **Apple**, **Google**, **Stripe/web**, **Firebase** o
+**base de datos de la app**. La página de proyecto muestra una `StoreCard` por origen, siempre en el mismo orden y con las
+mismas filas: *App Store*, *Google Play* y, solo si hay pagos que no pasan por una tienda, *Web y otros pagos* (Invoice Snap)
+o *Datos de la app* (CardAlert).
 
-| Componente | Props principales | Uso |
-|---|---|---|
-| **BaseButton** | `type`, `size` (`normal`/`small`), `variant` (`solid`/`ghost`), `disabled` | Cualquier botón de la app (login, buscar, acciones de tabla, logout) |
-| **BaseInput** | `modelValue`, `label`, `type`, `placeholder`, `required` | Campos de texto/contraseña con `v-model` (login, buscador de usuarios) |
-| **BaseSelect** | `modelValue`, `label`, `options: [{value,label}]` | Select genérico con `v-model`, listo para futuros filtros |
-| **BaseCard** | `title?` | Contenedor "panel" (fondo/borde estándar) — usado en cada panel de detalle |
-| **BaseTable** | `columns: [{key,label,formatter?}]`, `rows`, `rowKey`, `emptyMessage` | Tabla genérica. Columnas con formato custom vía slot `#cell-<key>`; acciones vía slot `#actions` |
-| **Pagination** | `page`, `totalPages` | Anterior/Siguiente genérico, emite `update:page` |
-| **StatCard** | `label`, `value`, `fallback`, `live` | Tarjeta KPI (usuarios totales, activos, en línea...) |
-| **StatusBadge** | `ok`, `okLabel`, `offLabel` | Badge binario (Conectado/Desconectado, o cualquier otro estado sí/no) |
-| **LiveDot** | — | El puntito verde pulsante de "dato en vivo" |
-| **AlertBanner** | `type` (`ok`/`error`) | Banner de aviso, contenido libre por slot |
-| **BreakdownList** | `data: {clave: numero}` | Lista "etiqueta → número" (suscripciones por plan, plataformas...) |
-| **LineChart** | `series: [{day,count}]`, `color`, `label` | Envuelve Chart.js; se reconstruye solo si cambian los datos |
+`composables/useProjectSections.js` es el ÚNICO sitio donde se decide qué cifra va en qué tarjeta:
+`buildSections(project, stats, storeStats)` → `[{ id, kind, title, status, statusFallback, rows, footer }]`. Cada fila es
+`{ id, label, state, value, hint, reason, source:{kind,label}, tag, details, note }` con `state`:
+`loading` (bloque de carga) · `ok` · `unavailable` (no existe, `reason` dice por qué) · `pending` (existe pero falta acceso).
+Las páginas y `StoreCard` solo pintan lo que reciben. **Para añadir un origen nuevo se añade una función de sección ahí.**
 
-**Cómo se logra la reutilización real** (no solo "están en la misma
-carpeta"): cada uno recibe únicamente tipos primitivos/objetos planos por
-props y emite eventos `update:*` — ninguno importa un store de Pinia ni sabe
-de la API. `BaseTable`, por ejemplo, no tiene ni idea de que existen
-"usuarios": solo sabe pintar `columns` + `rows` y delegar el contenido de
-cada celda a quien lo use.
+Reglas de honestidad (no negociables): nunca inventar un dato; si no se puede atribuir/leer, la fila lo dice y explica por qué;
+el dinero de prueba (Stripe test) lleva la marca `PRUEBA`; lo que la propia app declara sin verificar se etiqueta como tal y
+no entra en totales globales.
 
-## 8. Componentes de layout (`client/src/components/layout/`)
+## 8. Componentes
 
-- **`AppLayout.vue`**: envoltorio de toda página autenticada (`.layout` con
-  Sidebar + Topbar + `<slot />`). Evita repetir esa estructura en las 4
-  páginas.
-- **`Sidebar.vue`**: lee `useProjectsStore()` para pintar la lista de
-  proyectos (con su color), resalta el activo comparando con
-  `route.params.id`, y tiene el botón de logout.
-- **`Topbar.vue`**: título + subtítulo (por props) + nombre/avatar del
-  usuario (leído de `useAuthStore()`, no hace falta pasarlo).
+### 8.1 `components/base/` (genéricos: solo props/eventos, sin stores ni API)
 
-`ProjectCard.vue` (en `components/`, no en `base/`, porque sí conoce el
-dominio) es el único componente "compuesto": arma la tarjeta del resumen
-general combinando `StatusBadge` y `LiveDot`.
+| Componente | Para qué |
+|---|---|
+| `BaseButton`, `BaseInput`, `BaseSelect` | Formularios |
+| `BaseCard` | Panel (`title?`) |
+| `BaseTable` | `columns`, `rows`, `rowKey`, `clickable` (emite `row-click`), `loading` + `skeletonRows`; slots `#cell-<key>` y `#actions` (el slot de acciones no dispara el clic de fila) |
+| `Pagination` | `page`, `totalPages` → `update:page` |
+| `StatCard` | KPI; `loading`, `to` (RouterLink), `live` |
+| `StatusBadge` (binario) · `StatusChip` (`tone`: ok/pending/neutral/error) | Estados |
+| `SourceTag` | Etiqueta de origen (`kind`: apple/google/web/firebase/db, `label?`) |
+| `MetricRow` | Fila etiqueta → valor con `state`, `source`, `hint`, `tag`, `details`, `note`, `reason` |
+| `Breadcrumbs` | `items:[{label,to?}]`; un item sin label pinta un bloque de carga |
+| `SkeletonBlock`, `SkeletonLines` | Estados de carga |
+| `AlertBanner`, `BreakdownList`, `LiveDot`, `LineChart` (alto fijo `height`) | Utilidades |
 
-## 9. Páginas (`client/src/pages/`)
+### 8.2 Compuestos y layout
 
-Cada página es responsable de: pedir sus propios datos (en `onMounted` /
-`watch`), y componer los `base/*` para pintarlos. No hay lógica de
-fetching duplicada entre páginas — todas pasan por `api/projects.js`.
+`StoreCard` (presentación pura de una sección), `ProjectUsers` (listado completo de usuarios, reutilizable para cualquier
+proyecto con usuarios), `ProjectCard`, `RequestStatusBadge`; `AppLayout` (props `heading`, `subheading`, `crumbs`),
+`Sidebar` (con esqueleto mientras carga el registro), `Topbar` (migas + título).
 
-- **`LoginPage.vue`**: formulario con `BaseInput` + `BaseButton`, llama
-  `authStore.login()`, redirige a `route.query.redirect` o `/`.
-- **`OverviewPage.vue`**: `StatCard` ×3 (KPIs) + grid de `ProjectCard`.
-- **`ProjectDetailPage.vue`**: la más grande. KPIs (`StatCard`), gráfico
-  (`LineChart`), y hasta 6 `BaseCard` (suscripciones, plataformas,
-  ingresos, Google Play, App Store) que se muestran u ocultan según
-  `project.capabilities` / `project.hasStoreMetrics`.
-- **`UsersPage.vue`**: buscador (`BaseInput` + `BaseButton`), `BaseTable`
-  con slot de acciones (botón distinto según `resetMethod` de cada fila),
-  `Pagination`, y `AlertBanner` con el resultado de la última acción
-  (correo enviado / link generado / contraseña temporal / error).
-- **`NotFoundPage.vue`**: página 404 simple, reutiliza las clases de
-  `.login-card` para no crear estilos nuevos.
+### 8.3 Páginas
+
+- `OverviewPage`: KPIs globales + `ProjectCard` por proyecto.
+- `ProjectDetailPage`: migas → KPIs de usuarios y segmentos (cada uno filtra la lista) → `StoreCard`s por origen → gráfico
+  de altas y distribución de APK → `ProjectUsers` (`#usuarios`).
+- `UserDetailPage`: ficha (solo proyectos con `userActivity`): perfil, incidencias publicadas y trabajos realizados.
+- `LoginPage`, `NotFoundPage`.
+
+## 9. Patrones de diseño aplicados
+
+1. **Config-driven**: capacidades por proyecto en `projects.js`; el código es genérico.
+2. **Conectores aislados + contrato normalizado**: cada fuente se traduce a la forma de §5.2/§5.3; la UI no sabe de dónde viene.
+3. **Separación datos → presentación**: `useProjectSections` (lógica) → `StoreCard`/`MetricRow` (pintura).
+4. **Base components sin dominio**: `base/` nunca importa stores ni API.
+5. **Carga progresiva (skeleton + reveal)**: la estructura aparece al instante con bloques que brillan (`.skeleton`) y cada
+   bloque "se enfoca" (`.reveal`) al llegar sus datos. Cada fuente se pide por separado con guarda `loadToken` contra
+   respuestas obsoletas. Nunca se muestra un estado falso ("Desconectado", "No encontrado") mientras carga.
+6. **Degradación honesta**: ante falta de datos/credenciales, `unavailable`/`pending` con motivo; nunca un error que tumbe la página.
+7. **Privacidad por defecto**: proyecciones/listas blancas; no se leen subcolecciones financieras; no se exponen variables
+   de entorno ni identificadores internos.
+8. **Navegación**: migas en toda página, enlaces con `#ancla`, una sola página de proyecto con todo.
 
 ## 10. Estilos
 
-Un solo archivo global, `client/src/style.css` — el mismo tema oscuro que
-ya existía (variables CSS en `:root`: `--bg`, `--card`, `--primary`,
-`--border`, etc.). Los componentes usan esas clases compartidas
-(`.kpi-card`, `.data-table`, `.status-badge`...) en vez de reinventar
-estilos por componente; cuando un componente necesita algo muy propio (ej.
-`BaseButton`'s variante `ghost`), usa `<style scoped>` para no filtrar esas
-reglas al resto de la app.
+`client/src/style.css`: variables en `:root` (`--bg --card --border --text --muted --primary --danger --ok`) y clases
+compartidas (`.kpi-card`, `.panel`, `.data-table`, `.store-grid`, `.skeleton`, `.reveal`...). Lo muy propio de un componente va
+en `<style scoped>`. `prefers-reduced-motion` desactiva las animaciones de carga.
 
-## 11. Cómo extender
+## 11. Despliegue
 
-- **Nuevo proyecto**: ver el paso a paso al final del `README.md` — el
-  frontend no necesita ningún cambio, se alimenta solo de
-  `GET /api/projects`.
-- **Nuevo componente base**: agregarlo a `components/base/`, sin imports de
-  stores/API, documentando sus props igual que los de la tabla del §7.
-- **Nueva página**: agregar el archivo en `pages/`, la entrada en
-  `router/index.js`, y (si hace falta) el endpoint correspondiente en
-  `api/projects.js` + `src/routes/dashboard.routes.js`.
+Servidor Ubuntu con PM2 (proceso `cuadro-mando`), nginx como proxy inverso + Let's Encrypt, en
+`https://dashboard.krbusinessventures.org`, código en `/var/www/cuadro_mando` (git, rama `main`). Flujo:
+
+```
+git pull origin main
+cd client && npm run build && cd ..        # solo si cambió client/ (o package.json -> npm install antes)
+pm2 restart cuadro-mando
+```
+
+Notas: `client/package-lock.json` está en `.gitignore` a propósito (binarios nativos distintos en macOS y Linux); si falla
+Rollup/Vite con "Cannot find native binding": `rm -rf client/node_modules client/package-lock.json && npm install`.
+Nunca se versionan `.env`, `.env.local`, `secrets/` ni `uploads/`. Las credenciales de acceso al servidor las da el dueño del
+proyecto; no están en el repositorio.
+
+## 12. Estado y pendientes
+
+- **Hecho**: tarjetas por origen, estado de la app en Apple, atribución por origen en Invoice Snap, ficha de usuario de FixRadar,
+  CardAlert vía Firebase, distribución de APK, estados de carga, migas, listado dentro del proyecto.
+- **Fase 2**: informes de suscripciones de Apple (para atribuir suscripciones por plan) y selector de periodo común.
+- **Fase 3**: ingresos y suscripciones de Google desde los informes de ganancias del bucket. Bloqueado hoy por 403 de Cloud
+  Storage (la cuenta de servicio `cuadro-mando-play` está invitada en Play Console; esperar propagación y luego bajar su rol
+  de Admin a solo lectura). Antes de escribir el lector, inspeccionar los archivos reales del bucket.
+- **Datos de Google Play** (estado de publicación de cada app): pendiente, requiere permiso de gestión de versiones.
+
+## 13. Cómo extender
+
+- **Proyecto nuevo**: objeto en `projects.js` + variable en `.env`. Si su origen de datos es nuevo, un conector que devuelva la forma §5.2.
+- **Origen nuevo (tercera tienda, pasarela)**: función de sección en `useProjectSections.js`; la UI no cambia.
+- **Componente base nuevo**: en `components/base/`, sin importar stores/API; documentar props aquí.
+- **Página nueva**: archivo en `pages/`, ruta en `router/index.js`, función en `api/projects.js` y endpoint en `dashboard.routes.js`; usar `AppLayout` con `crumbs` y estados de carga.

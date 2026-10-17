@@ -245,7 +245,10 @@ ahí es instalaciones/desinstalaciones.
 Ver [`ARCHITECTURE.md`](./ARCHITECTURE.md) para el árbol completo de
 carpetas, la tecnología usada en cada parte, el contrato de la API
 (`src/routes` ↔ `client/src/api`), y el detalle de cada módulo del backend y
-cada componente/store/página del frontend de Vue.
+cada componente/store/página del frontend de Vue, el modelo de datos por
+origen (Apple / Google / pagos propios) y los patrones de diseño aplicados.
+Las reglas de trabajo para cualquier persona o IA que toque el proyecto están
+en [`CLAUDE.md`](./CLAUDE.md).
 
 ## Agregar un proyecto nuevo
 
