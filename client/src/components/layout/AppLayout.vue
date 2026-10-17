@@ -2,7 +2,7 @@
   <div class="layout">
     <Sidebar />
     <main class="content">
-      <Topbar :heading="heading" :subheading="subheading" />
+      <Topbar :heading="heading" :subheading="subheading" :crumbs="crumbs" />
       <slot />
     </main>
   </div>
@@ -18,5 +18,6 @@ import Topbar from './Topbar.vue'
 defineProps({
   heading: { type: String, default: '' },
   subheading: { type: String, default: '' },
+  crumbs: { type: Array, default: () => [] },
 })
 </script>

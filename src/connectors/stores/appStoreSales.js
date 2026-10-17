@@ -108,4 +108,54 @@ async function getAppSalesSummary(project) {
   return { supported: true, month: monthsAgo(0), units: 0, proceeds: 0, note: 'Sin descargas en los últimos dos meses' };
 }
 
-module.exports = { isConfigured, fetchSalesReport, getAppSalesSummary };
+// Estado de la app en App Store Connect (no necesita el vendor number: es la
+// API de gestion, no la de informes). tone -> color del chip en la UI.
+const STATE_INFO = {
+  READY_FOR_SALE: { label: 'Publicada', tone: 'ok' },
+  PENDING_DEVELOPER_RELEASE: { label: 'Aprobada, pendiente de publicar', tone: 'pending' },
+  PENDING_APPLE_RELEASE: { label: 'Aprobada, pendiente de publicar', tone: 'pending' },
+  PROCESSING_FOR_APP_STORE: { label: 'Procesando', tone: 'pending' },
+  WAITING_FOR_REVIEW: { label: 'En cola de revisión', tone: 'pending' },
+  IN_REVIEW: { label: 'En revisión', tone: 'pending' },
+  PREPARE_FOR_SUBMISSION: { label: 'En preparación', tone: 'neutral' },
+  REJECTED: { label: 'Rechazada', tone: 'error' },
+  METADATA_REJECTED: { label: 'Metadatos rechazados', tone: 'error' },
+  INVALID_BINARY: { label: 'Binario inválido', tone: 'error' },
+  DEVELOPER_REJECTED: { label: 'Retirada por el desarrollador', tone: 'neutral' },
+  REMOVED_FROM_SALE: { label: 'Retirada de la tienda', tone: 'error' },
+};
+
+function describeState(version) {
+  const state = version.attributes.appStoreState;
+  const info = STATE_INFO[state] || { label: state, tone: 'neutral' };
+  return { state, label: info.label, tone: info.tone, version: version.attributes.versionString };
+}
+
+// Si hay una version publicada se informa esa (y, aparte, la mas nueva si va
+// por otro estado: ej. 1.0.4 publicada y 1.0.5 en preparacion). Si no, la mas
+// reciente. null = la app no tiene ficha en App Store Connect.
+async function getAppStoreStatus(project) {
+  const appleAppId = project.store && project.store.appleAppId;
+  if (!appleAppId) return null;
+  if (!process.env.APP_STORE_CONNECT_PRIVATE_KEY_PATH) throw new Error('Faltan credenciales de App Store Connect en .env');
+
+  const params = new URLSearchParams({ limit: '10', 'fields[appStoreVersions]': 'versionString,appStoreState' });
+  const res = await fetch(`https://api.appstoreconnect.apple.com/v1/apps/${appleAppId}/appStoreVersions?${params}`, {
+    headers: { Authorization: `Bearer ${buildToken()}` },
+  });
+  if (!res.ok) throw new Error(`App Store Connect respondio ${res.status}`);
+
+  const versions = (await res.json()).data || [];
+  if (!versions.length) return null;
+
+  const latest = versions[0];
+  const live = versions.find((v) => v.attributes.appStoreState === 'READY_FOR_SALE');
+  const status = describeState(live || latest);
+  if (live && live !== latest) {
+    const next = describeState(latest);
+    status.next = { version: next.version, label: next.label };
+  }
+  return status;
+}
+
+module.exports = { isConfigured, fetchSalesReport, getAppSalesSummary, getAppStoreStatus };

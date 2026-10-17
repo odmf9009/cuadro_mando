@@ -1,6 +1,7 @@
 <template>
   <header class="topbar">
     <div>
+      <Breadcrumbs v-if="crumbs.length" :items="crumbs" />
       <h1>
         <template v-if="heading">{{ heading }}</template>
         <SkeletonBlock v-else width="240px" height="1.4rem" />
@@ -19,6 +20,7 @@
 import { computed } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import SkeletonBlock from '../base/SkeletonBlock.vue'
+import Breadcrumbs from '../base/Breadcrumbs.vue'
 
 // Encabezado generico de cada pagina: titulo + subtitulo + usuario actual.
 // El nombre/avatar sale del store de auth, no hace falta pasarlo por props.
@@ -26,6 +28,7 @@ import SkeletonBlock from '../base/SkeletonBlock.vue'
 defineProps({
   heading: { type: String, default: '' },
   subheading: { type: String, default: '' },
+  crumbs: { type: Array, default: () => [] }, // [{ label, to? }] -> Breadcrumbs
 })
 
 const authStore = useAuthStore()

@@ -151,6 +151,8 @@ async function getFirestoreProjectStats(project) {
     subscriptions: {
       active: premiumApp,
       activeLabel: 'premium según la app',
+      // Sin atribucion por tienda: el plan no dice si vino de Apple o de Google.
+      sourceLabel: 'Firebase (la propia app)',
       unverified: true,
       byStatus: {},
       byPlan,

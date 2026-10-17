@@ -1,5 +1,7 @@
 <template>
-  <canvas ref="canvasEl" height="110"></canvas>
+  <div class="line-chart" :style="{ height }">
+    <canvas ref="canvasEl"></canvas>
+  </div>
 </template>
 
 <script setup>
@@ -13,6 +15,7 @@ const props = defineProps({
   series: { type: Array, required: true }, // [{ day: 'YYYY-MM-DD', count: n }]
   color: { type: String, default: '#6366f1' },
   label: { type: String, default: 'Nuevos usuarios' },
+  height: { type: String, default: '220px' }, // alto fijo: no crece al ensanchar la tarjeta
 })
 
 const canvasEl = ref(null)
@@ -40,6 +43,7 @@ function render() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false }, ticks: { color: '#8b93a7' } },
@@ -53,3 +57,7 @@ onMounted(render)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => [props.series, props.color], render)
 </script>
+
+<style scoped>
+.line-chart { position: relative; width: 100%; }
+</style>

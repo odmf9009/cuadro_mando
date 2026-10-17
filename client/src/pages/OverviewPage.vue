@@ -1,5 +1,5 @@
 <template>
-  <AppLayout heading="Resumen general" subheading="Vista consolidada de todos tus proyectos">
+  <AppLayout :crumbs="[{ label: 'Inicio' }]" heading="Resumen general" subheading="Vista consolidada de todos tus proyectos">
     <section class="kpi-row">
       <StatCard label="Usuarios totales" :value="summary.totalUsers" :loading="loading" />
       <StatCard label="Proyectos conectados" :value="`${summary.connectedCount} / ${summary.totalProjects}`" :loading="loading" />

@@ -45,6 +45,11 @@ function toSafeProject(project) {
     userColumns: project.userColumns || [],
     hasPasswordReset: Boolean(project.auth),
     hasStoreMetrics: Boolean(project.store),
+    // Solo si existe ficha en cada tienda (no los identificadores): la UI decide con esto
+    // entre "sin ficha" y pedir las metricas.
+    store: project.store
+      ? { hasAppleListing: Boolean(project.store.appleAppId), hasAndroidListing: Boolean(project.store.androidPackageName) }
+      : null,
     hasApkDistribution: Boolean(project.apkDistribution && project.apkDistribution.enabled),
     hasUserActivity: project.type === 'mongo' && Boolean(project.userActivity),
     segments: project.segments
@@ -103,16 +108,22 @@ async function getStoreStats(project) {
 
   const month = new Date().toISOString().slice(0, 7).replace('-', ''); // YYYYMM
 
-  const [appleResult, googleResult] = await Promise.allSettled([
+  const [appleResult, googleResult, appleStatusResult] = await Promise.allSettled([
     appStoreSales.getAppSalesSummary(project),
     googlePlayReports.getInstallsOverview(project, month),
+    appStoreSales.getAppStoreStatus(project),
   ]);
 
+  // status: null = la app no tiene ficha en App Store Connect; undefined = no se pudo consultar.
+  const appleStatus = appleStatusResult.status === 'fulfilled' ? appleStatusResult.value : undefined;
+
   return {
-    apple:
-      appleResult.status === 'fulfilled'
+    apple: {
+      ...(appleResult.status === 'fulfilled'
         ? appleResult.value
-        : { supported: false, reason: appleResult.reason.message },
+        : { supported: false, reason: appleResult.reason.message }),
+      status: appleStatus,
+    },
     google:
       googleResult.status === 'fulfilled'
         ? googleResult.value

@@ -16,6 +16,12 @@ function getPool(uri) {
   return pool;
 }
 
+// "provider" es quien proceso el cobro; se normaliza a un origen comun que
+// entiende la UI (apple | google | web | other) para pintar cada cifra en la
+// tarjeta de su tienda. Valores reales hoy: app_store, google_play, stripe, manual.
+const SOURCE_BY_PROVIDER = { app_store: 'apple', google_play: 'google', stripe: 'web' };
+const sourceOf = (provider) => SOURCE_BY_PROVIDER[provider] || 'other';
+
 function rowsToCountMap(rows, keyField) {
   const map = {};
   for (const row of rows) map[row[keyField] || 'desconocido'] = Number(row.count);
@@ -40,6 +46,7 @@ async function getInvoiceSnapStats(project) {
       subsByStatusRes,
       subsByPlanRes,
       subsByPlatformRes,
+      subsByProviderRes,
       revenueRes,
       revenueByPlanRes,
     ] = await Promise.all([
@@ -73,6 +80,9 @@ async function getInvoiceSnapStats(project) {
       pool.query(
         `SELECT platform, COUNT(*)::int AS count FROM subscriptions WHERE "isActive" = true GROUP BY platform`
       ),
+      pool.query(
+        `SELECT provider, plan, COUNT(*)::int AS count FROM subscriptions WHERE "isActive" = true GROUP BY provider, plan`
+      ),
       // "environment" (test/live) viene directo en la tabla -> mas
       // confiable que inferirlo de otro lado. Nunca se suma junto a "live"
       // en el mismo total, para no inflar ingresos reales con pruebas.
@@ -80,10 +90,10 @@ async function getInvoiceSnapStats(project) {
       // y pg lo devuelve como string; solo se pasa a Number al armar la
       // respuesta, una unica vez, para que el navegador lo formatee.
       pool.query(`
-        SELECT currency, environment, ROUND(COALESCE(SUM("pricePaid"), 0), 2) AS total
+        SELECT provider, currency, environment, ROUND(COALESCE(SUM("pricePaid"), 0), 2) AS total
         FROM credit_purchases
         WHERE status = 'COMPLETED'
-        GROUP BY currency, environment
+        GROUP BY provider, currency, environment
       `),
       // Ingreso por plan: el precio NO esta en "subscriptions" (RevenueCat
       // no lo reporta) -> se extrae del payload crudo de Stripe que si lo
@@ -117,6 +127,14 @@ async function getInvoiceSnapStats(project) {
         active: subsActiveRes.rows[0].count,
         byStatus: rowsToCountMap(subsByStatusRes.rows, 'status'),
         byPlan: rowsToCountMap(subsByPlanRes.rows, 'plan'),
+        // Activas por origen del cobro (apple/google/web/other), con su desglose por plan.
+        bySource: subsByProviderRes.rows.reduce((acc, r) => {
+          const src = sourceOf(r.provider);
+          acc[src] = acc[src] || { active: 0, byPlan: {} };
+          acc[src].active += Number(r.count);
+          acc[src].byPlan[r.plan || 'desconocido'] = (acc[src].byPlan[r.plan || 'desconocido'] || 0) + Number(r.count);
+          return acc;
+        }, {}),
         // Por cada plan, cuanto genero y si ese pago fue real o modo prueba
         // de Stripe (livemode=false) -> nunca se mezclan en un solo numero,
         // para no hacer pasar dinero de prueba por ingresos reales.
@@ -131,6 +149,7 @@ async function getInvoiceSnapStats(project) {
       revenue: revenueRes.rows.map((r) => ({
         currency: r.currency,
         total: Number(r.total),
+        source: sourceOf(r.provider),
         isTestMode: r.environment !== 'live',
       })),
     };

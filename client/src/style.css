@@ -540,3 +540,13 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .skeleton, .reveal { animation: none; }
 }
+
+/* ---------- Tarjetas por origen (Apple / Google / propios) ---------- */
+
+.store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 1.2rem;
+  align-items: start;
+}

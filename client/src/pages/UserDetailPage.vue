@@ -1,10 +1,9 @@
 <template>
   <AppLayout
-    :heading="project ? `Usuario · ${project.name}` : ''"
-    :subheading="project ? 'Ficha, incidencias y actividad' : ''"
+    :crumbs="crumbs"
+    heading="Ficha de usuario"
+    :subheading="project ? `${project.name} · incidencias y actividad` : ''"
   >
-    <RouterLink :to="`/project/${id}/users`" class="back-link">← Volver a usuarios</RouterLink>
-
     <AlertBanner v-if="error" type="error">⚠ {{ error }}</AlertBanner>
 
     <template v-else-if="detail">
@@ -188,6 +187,13 @@ const jobsColumns = [
 
 const displayName = computed(() => detail.value?.user.name || detail.value?.user.nombre || 'Sin nombre')
 
+const crumbs = computed(() => [
+  { label: 'Inicio', to: '/' },
+  { label: project.value?.name || '', to: `/project/${props.id}` },
+  { label: 'Usuarios', to: { path: `/project/${props.id}`, hash: '#usuarios' } },
+  { label: detail.value ? displayName.value : '' },
+])
+
 const initials = computed(() =>
   displayName.value
     .split(/\s+/)
@@ -259,14 +265,6 @@ watch(() => [props.id, props.userId], load)
 </script>
 
 <style scoped>
-.back-link {
-  display: inline-block;
-  margin-bottom: 1.2rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-.back-link:hover { color: var(--text); }
-
 .profile-card {
   display: grid;
   grid-template-columns: auto 1fr minmax(240px, 320px);
