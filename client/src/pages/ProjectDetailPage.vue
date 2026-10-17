@@ -9,17 +9,11 @@
       <p class="muted small">Revisa la variable de entorno de este proyecto en tu archivo .env.</p>
     </AlertBanner>
 
-    <template v-else-if="stats && stats.noBackend">
-      <p class="muted small no-backend-note">
-        Esta app no tiene backend ni base de datos propia — no hay usuarios que trackear aquí, solo
-        métricas de tienda cuando estén disponibles.
-      </p>
-      <section v-if="storeStats" class="panel-grid">
-        <StoreMetricsCards :store-stats="storeStats" />
-      </section>
-    </template>
+    <p v-if="stats?.noBackend" class="muted small no-backend-note">
+      Esta app no tiene backend ni base de datos propia — no hay usuarios que trackear aquí.
+    </p>
 
-    <template v-else-if="stats">
+    <template v-if="hasBackendStats">
       <section class="kpi-row">
         <StatCard label="Usuarios totales" :value="stats.totalUsers" />
         <StatCard label="Nuevos (7 días)" :value="stats.newUsers7d" fallback="N/D" />
@@ -37,13 +31,19 @@
           :to="`/project/${project.id}/users?segment=${seg.value}`"
         />
       </section>
+    </template>
 
-      <section class="panel-grid">
-        <BaseCard title="Nuevos usuarios (últimos 30 días)">
-          <LineChart v-if="stats.chartSeries?.length" :series="stats.chartSeries" :color="project.color" />
-          <p v-else class="muted small">No hay datos de altas disponibles para este proyecto.</p>
-        </BaseCard>
+    <!-- Mismas tarjetas para TODOS los proyectos. Las que dependen de la base
+         de datos (suscripciones, plataformas, ingresos) solo se pintan si hay
+         conexion: si no, "no tiene suscripciones" seria mentira (no lo sabemos).
+         Tiendas y APK no dependen de la BD y se muestran siempre. -->
+    <section v-if="stats" class="panel-grid">
+      <BaseCard v-if="hasBackendStats" title="Nuevos usuarios (últimos 30 días)">
+        <LineChart v-if="stats.chartSeries?.length" :series="stats.chartSeries" :color="project.color" />
+        <p v-else class="muted small">No hay datos de altas disponibles para este proyecto.</p>
+      </BaseCard>
 
+      <template v-if="stats.connected">
         <BaseCard title="Suscripciones">
           <template v-if="project.capabilities.subscriptions && stats.subscriptions">
             <p class="big-number">{{ stats.subscriptions.active.toLocaleString('es') }} <span class="muted small">activas</span></p>
@@ -64,7 +64,7 @@
               </ul>
             </template>
           </template>
-          <p v-else class="muted small">Este proyecto no guarda suscripciones en su base de datos todavía.</p>
+          <p v-else class="muted small">No tiene suscripciones.</p>
         </BaseCard>
 
         <BaseCard title="Plataformas">
@@ -72,10 +72,7 @@
             <BreakdownList :data="stats.platforms" />
             <p class="muted small">Calculado a partir de las suscripciones activas (RevenueCat), no de instalaciones totales.</p>
           </template>
-          <p v-else class="muted small">
-            Este proyecto no guarda la plataforma (Android/iPhone) por usuario todavía.
-            Google Play y Apple ofrecen APIs de instalaciones, pero requieren credenciales propias por app — ver el README para activarlo.
-          </p>
+          <p v-else class="muted small">No disponible: este proyecto no guarda la plataforma (Android/iPhone) por usuario.</p>
         </BaseCard>
 
         <BaseCard title="Ingresos">
@@ -86,39 +83,39 @@
             </p>
             <p class="muted small">Suma de compras de créditos completadas (no incluye el valor de suscripciones recurrentes).</p>
           </template>
-          <p v-else class="muted small">Este proyecto no guarda montos de compra en su base de datos todavía.</p>
+          <p v-else class="muted small">No disponible: este proyecto no guarda montos de compra.</p>
         </BaseCard>
+      </template>
 
-        <StoreMetricsCards v-if="storeStats" :store-stats="storeStats" />
+      <StoreMetricsCards v-if="storeStats" :store-stats="storeStats" />
 
-        <BaseCard v-if="project.hasApkDistribution" title="Distribución directa (APK)">
-          <template v-if="apkInfo?.info">
-            <p class="muted small">
-              Versión <strong>{{ apkInfo.info.version || '(sin especificar)' }}</strong> ·
-              {{ (apkInfo.info.sizeBytes / 1024 / 1024).toFixed(1) }} MB ·
-              subida el {{ new Date(apkInfo.info.uploadedAt).toLocaleString('es') }}
-            </p>
-            <p v-if="apkInfo.info.notes" class="muted small">{{ apkInfo.info.notes }}</p>
-            <h3 class="panel-subtitle">Link público (para el portafolio)</h3>
-            <div class="link-box"><code>{{ fullPublicApkUrl }}</code></div>
-          </template>
-          <p v-else class="muted small">Todavía no se subió ningún APK para este proyecto.</p>
+      <BaseCard v-if="project.hasApkDistribution" title="Distribución directa (APK)">
+        <template v-if="apkInfo?.info">
+          <p class="muted small">
+            Versión <strong>{{ apkInfo.info.version || '(sin especificar)' }}</strong> ·
+            {{ (apkInfo.info.sizeBytes / 1024 / 1024).toFixed(1) }} MB ·
+            subida el {{ new Date(apkInfo.info.uploadedAt).toLocaleString('es') }}
+          </p>
+          <p v-if="apkInfo.info.notes" class="muted small">{{ apkInfo.info.notes }}</p>
+          <h3 class="panel-subtitle">Link público (para el portafolio)</h3>
+          <div class="link-box"><code>{{ fullPublicApkUrl }}</code></div>
+        </template>
+        <p v-else class="muted small">Todavía no se subió ningún APK para este proyecto.</p>
 
-          <h3 class="panel-subtitle">{{ apkInfo?.info ? 'Reemplazar por una versión nueva' : 'Subir el primer APK' }}</h3>
-          <form class="apk-upload-form" @submit.prevent="onUploadApk">
-            <input type="file" accept=".apk" required @change="onApkFileChange" />
-            <BaseInput v-model="apkVersion" label="Versión (opcional)" placeholder="ej. 1.4.0" />
-            <BaseInput v-model="apkNotes" label="Notas (opcional)" placeholder="ej. fix de notificaciones" />
-            <BaseButton type="submit" :disabled="!apkFile || apkUploading">
-              {{ apkUploading ? 'Subiendo…' : 'Subir APK' }}
-            </BaseButton>
-          </form>
-          <AlertBanner v-if="apkResult" :type="apkResult.type" class="apk-result">
-            {{ apkResult.message }}
-          </AlertBanner>
-        </BaseCard>
-      </section>
-    </template>
+        <h3 class="panel-subtitle">{{ apkInfo?.info ? 'Reemplazar por una versión nueva' : 'Subir el primer APK' }}</h3>
+        <form class="apk-upload-form" @submit.prevent="onUploadApk">
+          <input type="file" accept=".apk" required @change="onApkFileChange" />
+          <BaseInput v-model="apkVersion" label="Versión (opcional)" placeholder="ej. 1.4.0" />
+          <BaseInput v-model="apkNotes" label="Notas (opcional)" placeholder="ej. fix de notificaciones" />
+          <BaseButton type="submit" :disabled="!apkFile || apkUploading">
+            {{ apkUploading ? 'Subiendo…' : 'Subir APK' }}
+          </BaseButton>
+        </form>
+        <AlertBanner v-if="apkResult" :type="apkResult.type" class="apk-result">
+          {{ apkResult.message }}
+        </AlertBanner>
+      </BaseCard>
+    </section>
   </AppLayout>
 </template>
 
@@ -148,6 +145,9 @@ const apkVersion = ref('')
 const apkNotes = ref('')
 const apkUploading = ref(false)
 const apkResult = ref(null)
+
+// Proyecto conectado Y con base de datos propia (KPIs de usuarios y grafico).
+const hasBackendStats = computed(() => Boolean(stats.value?.connected && !stats.value.noBackend))
 
 async function load() {
   await projectsStore.load()

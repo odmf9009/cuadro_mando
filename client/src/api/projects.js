@@ -7,6 +7,7 @@ export const projectsApi = {
   storeStats: (id) => http.get(`/api/projects/${id}/store-stats`),
   users: (id, { page = 1, q = '', segment = '' } = {}) =>
     http.get(`/api/projects/${id}/users`, { page, q, segment }),
+  userActivity: (id, userId) => http.get(`/api/projects/${id}/users/${encodeURIComponent(userId)}/activity`),
   sendReset: (id, userId) => http.post(`/api/projects/${id}/users/${userId}/send-reset`),
   setTempPassword: (id, userId) => http.post(`/api/projects/${id}/users/${userId}/set-temp-password`),
   apkInfo: (id) => http.get(`/api/projects/${id}/apk`),

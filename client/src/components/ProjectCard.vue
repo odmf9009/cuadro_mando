@@ -11,7 +11,7 @@
 
     <div v-if="stats?.connected" class="project-card-stats">
       <div>
-        <span class="stat-value">{{ formatNumber(stats.totalUsers) }}</span>
+        <span class="stat-value">{{ formatNumber(stats.totalUsers, 'N/D') }}</span>
         <span class="stat-label">Usuarios</span>
       </div>
       <div>
@@ -19,7 +19,8 @@
         <span class="stat-label">Activos</span>
       </div>
       <div>
-        <span class="stat-value">{{ formatNumber(stats.subscriptions?.active, 'N/D') }}</span>
+        <span v-if="project.capabilities.subscriptions" class="stat-value">{{ formatNumber(stats.subscriptions?.active, 'N/D') }}</span>
+        <span v-else class="stat-value stat-value-none">No tiene</span>
         <span class="stat-label">Suscripciones</span>
       </div>
       <div v-if="stats.onlineUsers != null">
@@ -46,3 +47,12 @@ function formatNumber(value, fallback = '—') {
   return value != null ? value.toLocaleString('es') : fallback
 }
 </script>
+
+<style scoped>
+.stat-value-none {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.45rem;
+}
+</style>

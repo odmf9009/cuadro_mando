@@ -6,6 +6,7 @@ const routes = [
   { path: '/', name: 'overview', component: () => import('../pages/OverviewPage.vue') },
   { path: '/project/:id', name: 'project', component: () => import('../pages/ProjectDetailPage.vue'), props: true },
   { path: '/project/:id/users', name: 'project-users', component: () => import('../pages/UsersPage.vue'), props: true },
+  { path: '/project/:id/users/:userId', name: 'project-user', component: () => import('../pages/UserDetailPage.vue'), props: true },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../pages/NotFoundPage.vue') },
 ]
 

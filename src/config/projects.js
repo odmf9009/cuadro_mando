@@ -54,6 +54,15 @@
 // puestos. appleAppId es el ID NUMERICO de App Store Connect (no el bundle
 // id) -> hay que copiarlo a mano desde ahi, no existe en el codigo.
 //
+// userActivity (opcional, solo type 'mongo'): habilita la pantalla de detalle
+// de usuario (click en una fila de la lista) con las incidencias que publico y,
+// si es tecnico, los trabajos que realizo. Lee de otra coleccion del mismo Mongo:
+//   collection          -> coleccion con las incidencias/solicitudes
+//   clientIdField       -> campo con el _id del usuario que la publico
+//   technicianIdField   -> campo con el _id del tecnico asignado
+//   completedStatuses   -> valores de "status" que cuentan como trabajo realizado
+//   technicianUserType  -> valor de segments.field que identifica a un tecnico
+//
 // apkDistribution (opcional): { enabled: true } habilita subir/reemplazar
 // un .apk desde la pagina del proyecto, servido en una URL publica fija
 // (/downloads/<id>.apk) para distribuir fuera de Google Play (ej. mientras
@@ -167,6 +176,17 @@ module.exports = [
       androidPackageName: 'com.venturesflstudio.fixradar',
       iosBundleId: 'com.venturesflstudio.fixRadar',
       appleAppId: 6782331585,
+    },
+    // Actividad por usuario: FixRadar guarda las incidencias que publican los
+    // clientes (y los trabajos que hacen los tecnicos) en su propia coleccion
+    // "servicerequests". Habilita la pantalla de detalle al hacer click en un
+    // usuario de la lista.
+    userActivity: {
+      collection: 'servicerequests',
+      clientIdField: 'clientId',
+      technicianIdField: 'technicianId',
+      completedStatuses: ['completed'],
+      technicianUserType: 'technician',
     },
     // Distribucion directa del APK mientras Google Play aprueba la app.
     // La URL publica de descarga (/downloads/fixradar.apk) nunca cambia:

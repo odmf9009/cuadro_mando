@@ -208,6 +208,100 @@ async function findUserById(project, userId) {
   );
 }
 
+// Campos del usuario que SI se mandan al navegador en la pantalla de detalle
+// (lista blanca, no lista negra: un campo nuevo sensible que agregue la app
+// mañana -tokens, claves- no se filtra por accidente).
+const USER_DETAIL_FIELDS = [
+  '_id', 'name', 'nombre', 'username', 'email', 'phoneNumber', 'profileImageUrl',
+  'userType', 'authProvider', 'language', 'city', 'bio', 'createdAt', 'lastSeen',
+  'presenceStatus', 'isOnline', 'rating', 'reviewsCount', 'completedJobsCount',
+  'postsCount', 'companyName', 'yearsOfExperience', 'specialties', 'badges',
+  'emailVerified', 'phoneVerified', 'idVerified', 'licenseVerified',
+  'insuranceVerified', 'onboardingCompleted',
+];
+
+const ACTIVITY_REQUEST_PROJECTION = {
+  title: 1, category: 1, status: 1, urgency: 1, address: 1, createdAt: 1,
+  completedAt: 1, budget: 1, minBudget: 1, maxBudget: 1, clientName: 1,
+  technicianName: 1, reviewRating: 1, responsesCount: 1,
+};
+
+// Tope de filas que se mandan al navegador por lista; el conteo siempre es el
+// real (countDocuments), solo la lista se recorta a las mas recientes.
+const ACTIVITY_LIST_LIMIT = 100;
+
+// Detalle de un usuario: ficha + incidencias que publico + (si es tecnico)
+// trabajos realizados. Devuelve null si el usuario no existe.
+async function getUserActivity(project, userId) {
+  const cfg = project.userActivity;
+  const user = await findUserById(project, userId);
+  if (!user) return null;
+
+  const client = await getClient(process.env[project.envVar]);
+  const requests = client.db().collection(cfg.collection);
+  const id = String(user._id);
+
+  const safeUser = {};
+  for (const key of USER_DETAIL_FIELDS) {
+    if (user[key] !== undefined) safeUser[key] = user[key];
+  }
+
+  const isTechnician =
+    Boolean(project.segments) && user[project.segments.field] === cfg.technicianUserType;
+
+  const postedFilter = { [cfg.clientIdField]: id };
+  const [postedCount, postedItems, postedByStatus] = await Promise.all([
+    requests.countDocuments(postedFilter),
+    requests
+      .find(postedFilter, { projection: ACTIVITY_REQUEST_PROJECTION })
+      .sort({ createdAt: -1 })
+      .limit(ACTIVITY_LIST_LIMIT)
+      .toArray(),
+    requests.aggregate([{ $match: postedFilter }, { $group: { _id: '$status', count: { $sum: 1 } } }]).toArray(),
+  ]);
+
+  let completedJobs = null;
+  if (isTechnician) {
+    const jobsFilter = {
+      [cfg.technicianIdField]: id,
+      status: { $in: cfg.completedStatuses },
+    };
+    const [jobsCount, jobsItems, ratingAgg] = await Promise.all([
+      requests.countDocuments(jobsFilter),
+      requests
+        .find(jobsFilter, { projection: ACTIVITY_REQUEST_PROJECTION })
+        .sort({ completedAt: -1, createdAt: -1 })
+        .limit(ACTIVITY_LIST_LIMIT)
+        .toArray(),
+      requests
+        .aggregate([
+          { $match: { ...jobsFilter, reviewRating: { $ne: null } } },
+          { $group: { _id: null, avg: { $avg: '$reviewRating' }, count: { $sum: 1 } } },
+        ])
+        .toArray(),
+    ]);
+    completedJobs = {
+      count: jobsCount,
+      items: jobsItems,
+      ratedCount: ratingAgg[0]?.count || 0,
+      avgRating: ratingAgg[0] ? Number(ratingAgg[0].avg.toFixed(2)) : null,
+      truncated: jobsCount > jobsItems.length,
+    };
+  }
+
+  return {
+    user: safeUser,
+    isTechnician,
+    postedRequests: {
+      count: postedCount,
+      items: postedItems,
+      byStatus: Object.fromEntries(postedByStatus.map((r) => [r._id || 'desconocido', r.count])),
+      truncated: postedCount > postedItems.length,
+    },
+    completedJobs,
+  };
+}
+
 // Escribe un hash bcrypt nuevo directo en el campo de contraseña del
 // usuario. No pasa por el backend de la app -> no hace falta redeploy, y
 // bcrypt.compare() en el login de la app valida cualquier hash bcrypt
@@ -225,6 +319,7 @@ module.exports = {
   getMongoProjectStats,
   listUsers,
   findUserById,
+  getUserActivity,
   setUserPasswordHash,
   UNCLASSIFIED_SEGMENT,
 };

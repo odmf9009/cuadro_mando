@@ -5,6 +5,7 @@ const { getAllProjectStats, getProjectStats } = require('../connectors');
 const {
   listUsers,
   findUserById,
+  getUserActivity,
   setUserPasswordHash,
   UNCLASSIFIED_SEGMENT,
 } = require('../connectors/mongoConnector');
@@ -38,6 +39,7 @@ function toSafeProject(project) {
     hasUsersTab: project.type === 'mongo',
     hasStoreMetrics: Boolean(project.store),
     hasApkDistribution: Boolean(project.apkDistribution && project.apkDistribution.enabled),
+    hasUserActivity: project.type === 'mongo' && Boolean(project.userActivity),
     segments: project.segments
       ? {
           options: [
@@ -169,6 +171,22 @@ router.get('/projects/:id/users', async (req, res) => {
     // Proyecto sin URI configurada (o Mongo caido): el frontend distingue
     // este caso por el campo "error" en vez de recibir un 500 generico.
     res.json({ total: 0, page: 1, pageSize: 25, totalPages: 1, users: [], error: err.message });
+  }
+});
+
+// Detalle de un usuario: incidencias publicadas + trabajos realizados.
+router.get('/projects/:id/users/:userId/activity', async (req, res) => {
+  const project = findProject(req.params.id);
+  if (!project || project.type !== 'mongo' || !project.userActivity) {
+    return res.status(404).json({ error: 'No aplica a este proyecto' });
+  }
+
+  try {
+    const detail = await getUserActivity(project, req.params.userId);
+    if (!detail) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ ...detail, resetMethod: resetMethodFor(project, detail.user) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

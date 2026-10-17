@@ -34,7 +34,14 @@
       </form>
 
       <BaseCard>
-        <BaseTable :columns="columns" :rows="users" row-key="_id" empty-message="No se encontraron usuarios.">
+        <BaseTable
+          :columns="columns"
+          :rows="users"
+          row-key="_id"
+          empty-message="No se encontraron usuarios."
+          :clickable="project.hasUserActivity"
+          @row-click="openUser"
+        >
           <template #cell-createdAt="{ value }">
             <span class="muted small">{{ value ? new Date(value).toLocaleDateString('es') : '—' }}</span>
           </template>
@@ -67,7 +74,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../components/layout/AppLayout.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseTable from '../components/base/BaseTable.vue'
@@ -82,6 +89,7 @@ import { useConfirm } from '../composables/useConfirm'
 const props = defineProps({ id: { type: String, required: true } })
 const { confirmAction } = useConfirm()
 const route = useRoute()
+const router = useRouter()
 
 const projectsStore = useProjectsStore()
 const project = ref(null)
@@ -119,6 +127,10 @@ async function init() {
   await projectsStore.load()
   project.value = projectsStore.byId(props.id)
   if (project.value) await load(1)
+}
+
+function openUser(user) {
+  router.push(`/project/${props.id}/users/${encodeURIComponent(user._id)}`)
 }
 
 async function onSendReset(user) {
