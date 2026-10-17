@@ -195,6 +195,10 @@ const allProjects = [
       completedStatuses: ['completed'],
       technicianUserType: 'technician',
     },
+    // Columna extra de la tabla de usuarios. Una sola, con nombre generico:
+    // clientes -> publicaciones, profesionales -> trabajos realizados (la
+    // pinta UsersPage con postedCount/jobsCount de attachActivityCounts).
+    userColumns: [{ key: 'activity', label: 'Actividad' }],
     // Distribucion directa del APK mientras Google Play aprueba la app.
     // La URL publica de descarga (/downloads/fixradar.apk) nunca cambia:
     // el portafolio (krbusinessventures.org) la enlaza UNA sola vez: cada

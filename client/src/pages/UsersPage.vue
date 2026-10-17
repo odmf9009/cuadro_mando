@@ -42,6 +42,18 @@
           :clickable="project.hasUserActivity"
           @row-click="openUser"
         >
+          <template #cell-activity="{ row }">
+            <div class="activity-cell">
+              <template v-if="row.jobsCount != null">
+                <span :class="row.jobsCount ? 'activity-main' : 'muted'">{{ plural(row.jobsCount, 'trabajo', 'trabajos') }}</span>
+                <span v-if="row.postedCount" class="muted small">{{ plural(row.postedCount, 'publicación', 'publicaciones') }}</span>
+              </template>
+              <span v-else-if="row.postedCount != null" :class="row.postedCount ? 'activity-main' : 'muted'">
+                {{ plural(row.postedCount, 'publicación', 'publicaciones') }}
+              </span>
+              <span v-else class="muted">—</span>
+            </div>
+          </template>
           <template #cell-createdAt="{ value }">
             <span class="muted small">{{ value ? new Date(value).toLocaleDateString('es') : '—' }}</span>
           </template>
@@ -131,6 +143,10 @@ async function init() {
   if (project.value) await load(1)
 }
 
+function plural(n, one, many) {
+  return `${n.toLocaleString('es')} ${n === 1 ? one : many}`
+}
+
 function openUser(user) {
   router.push(`/project/${props.id}/users/${encodeURIComponent(user._id)}`)
 }
@@ -170,3 +186,14 @@ watch(
   }
 )
 </script>
+
+<style scoped>
+.activity-cell {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+.activity-main {
+  font-weight: 700;
+}
+</style>

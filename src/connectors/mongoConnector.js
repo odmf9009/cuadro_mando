@@ -158,6 +158,48 @@ function segmentFilter(project, segment) {
   return { [project.segments.field]: segment };
 }
 
+// Agrega a cada usuario de la pagina cuantas incidencias publico (postedCount)
+// y, si es tecnico, cuantos trabajos completo (jobsCount; null si no es
+// tecnico). Una sola consulta agrupada por tabla (no una por usuario), y solo
+// para los ids de la pagina actual. Mismas reglas que getUserActivity.
+async function attachActivityCounts(project, users) {
+  const cfg = project.userActivity;
+  if (!cfg || !users.length) return users;
+
+  const client = await getClient(process.env[project.envVar]);
+  const requests = client.db().collection(cfg.collection);
+  const ids = users.map((u) => String(u._id));
+
+  const [posted, jobs] = await Promise.all([
+    requests
+      .aggregate([
+        { $match: { [cfg.clientIdField]: { $in: ids } } },
+        { $group: { _id: `$${cfg.clientIdField}`, count: { $sum: 1 } } },
+      ])
+      .toArray(),
+    requests
+      .aggregate([
+        { $match: { [cfg.technicianIdField]: { $in: ids }, status: { $in: cfg.completedStatuses } } },
+        { $group: { _id: `$${cfg.technicianIdField}`, count: { $sum: 1 } } },
+      ])
+      .toArray(),
+  ]);
+
+  const postedById = new Map(posted.map((r) => [r._id, r.count]));
+  const jobsById = new Map(jobs.map((r) => [r._id, r.count]));
+  const segmentField = project.segments && project.segments.field;
+
+  return users.map((u) => {
+    const id = String(u._id);
+    const isTechnician = Boolean(segmentField) && u[segmentField] === cfg.technicianUserType;
+    return {
+      ...u,
+      postedCount: postedById.get(id) || 0,
+      jobsCount: isTechnician ? jobsById.get(id) || 0 : null,
+    };
+  });
+}
+
 // Lista usuarios para la pantalla de administracion (buscar por email/nombre
 // y accionar sobre uno). Nunca proyecta campos de contraseña/tokens.
 
@@ -197,7 +239,7 @@ async function listUsers(project, { search = '', page = 1, pageSize = 25, segmen
       .toArray(),
   ]);
 
-  return { total, page, pageSize, users };
+  return { total, page, pageSize, users: await attachActivityCounts(project, users) };
 }
 
 async function findUserById(project, userId) {
