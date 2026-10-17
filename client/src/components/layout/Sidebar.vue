@@ -11,6 +11,12 @@
       </RouterLink>
 
       <div class="nav-section-label">Proyectos</div>
+      <template v-if="!projectsStore.loaded">
+        <div v-for="n in 6" :key="`nav-sk-${n}`" class="nav-link">
+          <SkeletonBlock width="10px" height="10px" radius="50%" />
+          <SkeletonBlock :width="`${50 + ((n * 13) % 30)}%`" height="0.85rem" />
+        </div>
+      </template>
       <RouterLink
         v-for="p in projectsStore.items"
         :key="p.id"
@@ -35,6 +41,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useProjectsStore } from '../../stores/projects'
 import { useAuthStore } from '../../stores/auth'
 import BaseButton from '../base/BaseButton.vue'
+import SkeletonBlock from '../base/SkeletonBlock.vue'
 
 const projectsStore = useProjectsStore()
 const authStore = useAuthStore()

@@ -1,5 +1,5 @@
 <template>
-  <BaseCard title="Google Play">
+  <BaseCard title="Google Play" class="reveal">
     <template v-if="storeStats.google.supported && storeStats.google.totalInstalls != null">
       <p class="big-number">{{ storeStats.google.totalInstalls.toLocaleString('es') }} <span class="muted small">instalaciones ({{ storeStats.google.month }})</span></p>
       <p class="muted small">{{ storeStats.google.totalUninstalls.toLocaleString('es') }} desinstalaciones en el mismo periodo</p>
@@ -7,7 +7,7 @@
     <p v-else class="muted small">{{ googleMessage }}</p>
   </BaseCard>
 
-  <BaseCard title="App Store">
+  <BaseCard title="App Store" class="reveal">
     <template v-if="storeStats.apple.supported && storeStats.apple.units != null">
       <p class="big-number">{{ storeStats.apple.units.toLocaleString('es') }} <span class="muted small">descargas ({{ storeStats.apple.month }})</span></p>
       <p class="muted small">Proceeds del desarrollador: ${{ storeStats.apple.proceeds.toFixed(2) }}</p>

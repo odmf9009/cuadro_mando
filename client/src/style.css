@@ -498,3 +498,45 @@ code {
   justify-content: center;
   margin-top: 1.2rem;
 }
+
+/* ---------- Estados de carga (skeleton) ---------- */
+
+/* Bloque gris con un brillo que lo recorre y un leve desenfoque: la
+   estructura de la pantalla se ve desde el primer momento y se "enfoca"
+   (.reveal) cuando llegan los datos reales. */
+.skeleton {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.14) 45%,
+    rgba(255, 255, 255, 0.05) 65%
+  );
+  background-size: 300% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  filter: blur(0.7px);
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+.skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.reveal { animation: reveal-in 0.45s ease both; }
+
+@keyframes reveal-in {
+  from { opacity: 0; filter: blur(8px); transform: translateY(4px); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .reveal { animation: none; }
+}

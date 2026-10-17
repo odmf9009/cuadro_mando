@@ -16,7 +16,7 @@ import Topbar from './Topbar.vue'
 // contenido). Cada pagina solo aporta su titulo/subtitulo y el cuerpo via
 // slot default -> evita repetir la estructura .layout/.content en cada una.
 defineProps({
-  heading: { type: String, required: true },
+  heading: { type: String, default: '' },
   subheading: { type: String, default: '' },
 })
 </script>

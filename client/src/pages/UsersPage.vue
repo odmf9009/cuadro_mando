@@ -1,5 +1,8 @@
 <template>
-  <AppLayout v-if="project" :heading="`Usuarios · ${project.name}`" :subheading="`${total.toLocaleString('es')} usuarios en total`">
+  <AppLayout
+    :heading="project ? `Usuarios · ${project.name}` : ''"
+    :subheading="project && !loading ? `${total.toLocaleString('es')} usuarios en total` : ''"
+  >
     <AlertBanner v-if="connectionError" type="error">
       ⚠ No se pudo conectar a este proyecto: {{ connectionError }}
       <p class="muted small">Revisa la variable de entorno de este proyecto en tu archivo .env.</p>
@@ -39,7 +42,8 @@
           :rows="users"
           row-key="_id"
           empty-message="No se encontraron usuarios."
-          :clickable="project.hasUserActivity"
+          :clickable="Boolean(project?.hasUserActivity)"
+          :loading="loading"
           @row-click="openUser"
         >
           <template #cell-activity="{ row }">
@@ -74,7 +78,7 @@
             >
               Generar contraseña temporal
             </BaseButton>
-            <span v-else-if="project.hasPasswordReset" class="muted small">No soportado</span>
+            <span v-else-if="project?.hasPasswordReset" class="muted small">No soportado</span>
           </template>
         </BaseTable>
 
@@ -111,6 +115,7 @@ const page = ref(1)
 const totalPages = ref(1)
 const search = ref('')
 const connectionError = ref(null)
+const loading = ref(true)
 const actionResult = ref(null)
 const pendingId = ref(null)
 
@@ -130,17 +135,27 @@ const activeSegmentLabel = computed(() => {
 
 async function load(nextPage = 1) {
   page.value = nextPage
-  const data = await projectsApi.users(props.id, { page: nextPage, q: search.value, segment: route.query.segment || '' })
-  users.value = data.users
-  total.value = data.total
-  totalPages.value = data.totalPages
-  connectionError.value = data.error || null
+  loading.value = true
+  try {
+    const data = await projectsApi.users(props.id, { page: nextPage, q: search.value, segment: route.query.segment || '' })
+    users.value = data.users
+    total.value = data.total
+    totalPages.value = data.totalPages
+    connectionError.value = data.error || null
+  } catch (err) {
+    users.value = []
+    connectionError.value = err.message
+  } finally {
+    loading.value = false
+  }
 }
 
 async function init() {
+  loading.value = true
   await projectsStore.load()
   project.value = projectsStore.byId(props.id)
   if (project.value) await load(1)
+  else loading.value = false
 }
 
 function plural(n, one, many) {

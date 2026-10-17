@@ -1,15 +1,14 @@
 <template>
   <AppLayout
-    v-if="project"
-    :heading="`Usuario · ${project.name}`"
-    subheading="Ficha, incidencias y actividad"
+    :heading="project ? `Usuario · ${project.name}` : ''"
+    :subheading="project ? 'Ficha, incidencias y actividad' : ''"
   >
     <RouterLink :to="`/project/${id}/users`" class="back-link">← Volver a usuarios</RouterLink>
 
     <AlertBanner v-if="error" type="error">⚠ {{ error }}</AlertBanner>
 
     <template v-else-if="detail">
-      <section class="profile-card">
+      <section class="profile-card reveal">
         <div class="avatar-lg" :style="{ background: project.color }">
           <img v-if="detail.user.profileImageUrl" :src="detail.user.profileImageUrl" alt="" referrerpolicy="no-referrer" />
           <span v-else>{{ initials }}</span>
@@ -45,7 +44,7 @@
         </dl>
       </section>
 
-      <section class="kpi-row">
+      <section class="kpi-row reveal">
         <StatCard label="Incidencias publicadas" :value="detail.postedRequests.count" />
         <StatCard
           v-if="detail.isTechnician"
@@ -65,7 +64,7 @@
         />
       </section>
 
-      <div class="card-stack">
+      <div class="card-stack reveal">
       <BaseCard title="Incidencias publicadas">
         <ul v-if="statusEntries.length" class="status-summary">
           <li v-for="[status, count] in statusEntries" :key="status">
@@ -122,7 +121,27 @@
       </div>
     </template>
 
-    <p v-else class="muted">Cargando…</p>
+    <template v-else>
+      <section class="profile-card">
+        <SkeletonBlock width="72px" height="72px" radius="50%" />
+        <div class="skeleton-stack">
+          <SkeletonBlock width="220px" height="1.3rem" />
+          <SkeletonBlock width="60%" height="0.8rem" />
+          <SkeletonBlock width="45%" height="0.8rem" />
+        </div>
+        <div class="skeleton-stack">
+          <SkeletonBlock v-for="n in 4" :key="n" height="1.3rem" />
+        </div>
+      </section>
+
+      <section class="kpi-row">
+        <StatCard label="Incidencias publicadas" loading />
+      </section>
+
+      <BaseCard title="Incidencias publicadas">
+        <BaseTable :columns="postedColumns" loading :skeleton-rows="4" />
+      </BaseCard>
+    </template>
   </AppLayout>
 </template>
 
@@ -134,6 +153,7 @@ import BaseTable from '../components/base/BaseTable.vue'
 import StatCard from '../components/base/StatCard.vue'
 import AlertBanner from '../components/base/AlertBanner.vue'
 import LiveDot from '../components/base/LiveDot.vue'
+import SkeletonBlock from '../components/base/SkeletonBlock.vue'
 import RequestStatusBadge from '../components/RequestStatusBadge.vue'
 import { useProjectsStore } from '../stores/projects'
 import { projectsApi } from '../api/projects'

@@ -7,6 +7,17 @@
       </tr>
     </thead>
     <tbody>
+      <template v-if="loading">
+        <tr v-for="n in skeletonRows" :key="`sk-${n}`">
+          <td v-for="(col, ci) in columns" :key="col.key">
+            <SkeletonBlock :width="skeletonWidth(n, ci)" height="0.95rem" />
+          </td>
+          <td v-if="$slots.actions" class="actions-cell">
+            <SkeletonBlock width="5.5rem" height="1.7rem" radius="10px" />
+          </td>
+        </tr>
+      </template>
+      <template v-else>
       <tr
         v-for="(row, i) in rows"
         :key="rowKey ? row[rowKey] : i"
@@ -29,11 +40,14 @@
           {{ emptyMessage }}
         </td>
       </tr>
+      </template>
     </tbody>
   </table>
 </template>
 
 <script setup>
+import SkeletonBlock from './SkeletonBlock.vue'
+
 // Tabla generica reutilizada por cualquier listado (hoy: usuarios de cada
 // proyecto). columns = [{ key, label, formatter?, class? }]. Cada columna
 // puede además recibir contenido custom via slot "cell-<key>" cuando un
@@ -47,7 +61,11 @@ defineProps({
   emptyMessage: { type: String, default: 'No hay datos para mostrar.' },
   emptyValue: { type: String, default: '—' },
   clickable: { type: Boolean, default: false },
+  loading: { type: Boolean, default: false },
+  skeletonRows: { type: Number, default: 8 },
 })
+
+const skeletonWidth = (row, col) => `${52 + ((row * 17 + col * 23) % 40)}%`
 const emit = defineEmits(['row-click'])
 </script>
 
