@@ -38,3 +38,10 @@ function message(entry) {
 const googleMessage = computed(() => message(props.storeStats?.google))
 const appleMessage = computed(() => message(props.storeStats?.apple))
 </script>
+
+<style scoped>
+/* Un mensaje de error sin espacios (ruta, correo) no debe salirse de la tarjeta. */
+.muted {
+  overflow-wrap: anywhere;
+}
+</style>
