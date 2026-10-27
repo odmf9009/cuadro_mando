@@ -55,6 +55,44 @@ cd client && npm run build   # genera client/dist (Express lo sirve en producci�
 - Apple: informes MENSUALES (los diarios casi siempre vienen vacíos); estado de versión con `getAppStoreStatus`.
 - Google Play: instalaciones por informes del bucket; las ganancias salen del ZIP de "Informes de ganancias" de Play Console, importado con el control de la página del proyecto (`POST /api/play-reports/earnings`) o, si algún día el bucket responde, de `earnings/`. Los cobros de suscripción NO son suscriptores activos (se dice en la UI).
 
+## Herramientas de diseño y verificación (instaladas el 2026-10-27; úsalas en TODO trabajo de interfaz)
+
+**Skills** en `.claude/skills/` (de terceros, MIT; procedencia y commits auditados en `.claude/THIRD_PARTY.md`):
+
+- `design-taste-frontend` (Taste Skill v2): dirección de arte para páginas (portafolio, landing) **y** para pantallas de
+  aplicación como este panel (ruta `--app`; lee `references/app-screens.md` entera antes de empezar). Sus scripts se
+  ejecutan desde la RAÍZ del proyecto y escriben en `.taste-skill/` (gitignored): `draw.mjs` (reparte direcciones),
+  `inspect.mjs` (mide y fotografía en Chrome real a 1440/768/390), `lint.mjs`, `assets.mjs` (imágenes con licencia; necesita
+  red). `draw.mjs` guarda un historial en `~/.taste-skill/history.json` (fuera del repo; `TASTE_SKILL_HISTORY` lo mueve).
+- Skills de Emil Kowalski: `emil-design-eng` (base: pulido de UI), `animate`, `animation-performance`, `animation-vocabulary`,
+  `apple-design`, `break-ui` (probar con datos extremos), `find-animation-opportunities`, `improve-animations`,
+  `review-animations`, `mobile-native` (que se sienta nativa en móvil), `pick-ui-library`, `prototype` (variantes).
+
+**MCP** en `.mcp.json` (cada persona debe aprobarlos la primera vez que abre `claude` en el proyecto):
+
+- `playwright` (oficial de Microsoft, versión fijada, perfil aislado): navegar, capturar y probar en un navegador real.
+  Para responsive usa `browser_resize` a **320, 390, 768, 1024, 1440 y 1920** de ancho y mira cada captura. Guarda salidas en
+  `.playwright-mcp/` (gitignored). Si existe un `playwright` a nivel de usuario, gana el del proyecto.
+- `figma` (remoto): `/mcp` → figma → Authenticate (inicio de sesión en el navegador). `figma-desktop`: requiere la app de
+  escritorio abierta, Dev Mode (`Shift+D` → "Enable desktop MCP server") y un asiento Dev/Full. Úsalos solo cuando exista un
+  archivo de Figma con el diseño: el diseño de referencia manda sobre improvisar.
+
+**Prioridad**: la estética nunca justifica romper las reglas de arriba. Sin cifras inventadas (Taste Skill también las
+prohíbe en pantallas de aplicación), con el origen visible en cada dato, y con los componentes base y los estados de carga.
+
+## Rediseño visual: PENDIENTE (no empezar sin la orden explícita del dueño)
+
+Objetivo: remodelar el cuadro de mando y el portafolio público (`../porfolio`, proyecto hermano) para que sean lo más
+modernos posible y **responsive a cualquier pantalla** (móvil 320–430, tablet 768, portátil 1024–1440, grande 1920+; sin scroll
+horizontal; objetivos táctiles ≥ 44 px; respetar `prefers-reduced-motion`).
+
+- **Punto de partida del panel**: el sidebar es fijo (`.sidebar { width: 250px }`) y `style.css` no tiene ninguna media query de
+  ancho (solo `prefers-reduced-motion`; la única otra es la de la ficha de usuario), así que hoy no es usable en móvil.
+- **El portafolio NO tiene git** (carpeta `mios/porfolio`). Antes de tocarlo: `git init` + commit inicial, o una copia de
+  seguridad. Su contenido (proyectos, textos, capturas) vive en MongoDB y en `public/uploads/`; el rediseño no debe borrar datos.
+- Flujo: skill → 2–3 direcciones para elegir → implementar → verificar con Playwright en todos los anchos → documentar en
+  `ARCHITECTURE.md` → mostrárselo al dueño ANTES de desplegar.
+
 ## Despliegue (servidor propio, PM2)
 
 ```
@@ -81,5 +119,7 @@ sobre `--amend` una vez hecho el push.
 - Hecho (fase 3 parcial): ganancias de Google por importación manual del ZIP (lector verificado con un informe real de sep 2026).
   El acceso automático al bucket de Play sigue en 403 (la cuenta de servicio no obtiene permisos pese a estar invitada); cuando
   funcione, bajar su rol de Admin a solo lectura y confirmar la ruta `earnings/` del bucket.
+- Herramientas de diseño (skills de Taste y Emil + MCP de Playwright y Figma) instaladas; falta que el dueño apruebe los MCP
+  del proyecto y autentique Figma. El rediseño espera su luz verde (sección de arriba).
 - Portafolio público (proyecto hermano `mios/porfolio`, Mongo `projects`): su estado/enlaces de tienda se mantienen a mano;
   verificar contra App Store Connect/Google Play antes de cambiar textos de estado.

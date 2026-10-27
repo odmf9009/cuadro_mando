@@ -7,3 +7,7 @@ client/dist/
 .DS_Store
 secrets/
 uploads/
+
+# Salidas locales de las herramientas de diseño (capturas, informes, logs del navegador)
+.taste-skill/
+.playwright-mcp/
