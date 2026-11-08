@@ -88,7 +88,7 @@ nunca subir `.env`, claves ni `public/uploads/`). Ahora es Vue 3 + Vite (`porfol
 naranja, tarjetas con carrusel + visor ampliado) con aparición al scroll y parallax. Reglas de tiendas por app (App Store / Google Play /
 APK solo si el archivo responde + aviso «muy pronto en Google Play»), estructura, contratos y despliegue están en `porfolio/CLAUDE.md` y
 `porfolio/ARCHITECTURE.md`. Despliegue: `git pull origin main && (cd client && npm install && npm run build) && pm2 restart porfolio`.
-El sitio ya es indexable (robots/sitemap/Open Graph; `/admin` con `X-Robots-Tag: noindex`). El correo público es `support@krbusinessventures.org` (buzón existente en Hostinger). APK subidos: FixRadar y SkillFix; CurbRadar compilado pero sin subir hasta que el dueño confirme (su carpeta tiene cambios sin commit). Search Console es cosa del dueño.
+El sitio ya es indexable (robots/sitemap/Open Graph; `/admin` con `X-Robots-Tag: noindex`). El correo público es `support@krbusinessventures.org` (buzón existente en Hostinger). APK subidos y enlazados desde el portafolio: FixRadar 1.0.4 (18), SkillFix 1.0.0 (5) y CurbRadar 1.1.0 (5); este último se compiló con cambios sin commit de la carpeta de la app (el dueño lo autorizó el 2026-11-08). Search Console es cosa del dueño.
 
 **Cuadro de mando — REDISEÑADO y DESPLEGADO el 2026-11-08 (commit `b86de55`; copia previa de la versión anterior en `/root/backups/cuadro_mando-dist-pre-rediseno-*.tgz` del servidor)**: estilo «libro de cuentas»
 (skill `design-taste-frontend --app`; hoja de dirección en `.taste-skill/app/direction.json`), claro y oscuro, Geist autoalojada,
