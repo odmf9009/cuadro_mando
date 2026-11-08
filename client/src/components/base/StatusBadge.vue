@@ -1,16 +1,18 @@
 <template>
   <span class="status-badge" :class="ok ? 'status-ok' : 'status-off'">
-    {{ ok ? okLabel : offLabel }}
+    <span class="dot" aria-hidden="true"></span>{{ ok ? okLabel : offLabel }}
   </span>
 </template>
 
 <script setup>
-// Badge de estado binario (Conectado/Desconectado, Activo/Inactivo...).
-// Los textos son configurables para reutilizarlo en otros contextos ademas
-// del estado de conexion de un proyecto.
+// Estado binario de conexión (conectado / desconectado).
 defineProps({
   ok: { type: Boolean, required: true },
-  okLabel: { type: String, default: 'Conectado' },
-  offLabel: { type: String, default: 'Desconectado' },
+  okLabel: { type: String, default: 'Conectada' },
+  offLabel: { type: String, default: 'Sin conexión' },
 })
 </script>
+
+<style scoped>
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+</style>

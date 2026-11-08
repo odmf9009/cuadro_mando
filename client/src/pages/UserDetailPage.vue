@@ -4,11 +4,11 @@
     heading="Ficha de usuario"
     :subheading="project ? `${project.name} · incidencias y actividad` : ''"
   >
-    <AlertBanner v-if="error" type="error">⚠ {{ error }}</AlertBanner>
+    <AlertBanner v-if="error" type="error">{{ error }}</AlertBanner>
 
     <template v-else-if="detail">
       <section class="profile-card reveal">
-        <div class="avatar-lg" :style="{ background: project.color }">
+        <div class="avatar-lg" :style="{ '--c': project.color }">
           <img v-if="detail.user.profileImageUrl" :src="detail.user.profileImageUrl" alt="" referrerpolicy="no-referrer" />
           <span v-else>{{ initials }}</span>
         </div>
@@ -24,7 +24,7 @@
 
           <ul class="chips">
             <li v-for="c in verificationChips" :key="c.label" :class="{ 'chip-on': c.on }">
-              {{ c.on ? '✓' : '○' }} {{ c.label }}
+              {{ c.label }}
             </li>
           </ul>
           <ul v-if="detail.user.specialties?.length" class="chips chips-soft">
@@ -53,7 +53,7 @@
         <StatCard
           v-if="detail.isTechnician"
           label="Valoración media"
-          :value="detail.completedJobs.avgRating != null ? `${detail.completedJobs.avgRating} ★` : null"
+          :value="detail.completedJobs.avgRating != null ? `${detail.completedJobs.avgRating} de 5` : null"
           fallback="Sin valoraciones"
         />
         <StatCard
@@ -106,7 +106,7 @@
           </template>
           <template #cell-budget="{ row }">{{ formatBudget(row) }}</template>
           <template #cell-reviewRating="{ row }">
-            <span v-if="row.reviewRating != null" class="rating">{{ row.reviewRating }} ★</span>
+            <span v-if="row.reviewRating != null" class="rating">{{ row.reviewRating }} de 5</span>
             <span v-else class="muted small">Sin valorar</span>
           </template>
           <template #cell-completedAt="{ row }">
@@ -268,99 +268,59 @@ watch(() => [props.id, props.userId], load)
 .profile-card {
   display: grid;
   grid-template-columns: auto 1fr minmax(240px, 320px);
-  gap: 1.5rem;
+  gap: 24px;
   align-items: start;
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
+  border-radius: var(--radius-card);
+  padding: var(--card-pad);
+  margin-bottom: var(--gap);
 }
 
 .avatar-lg {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: white;
+  font-size: 22px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--c, #8a8f99) 16%, var(--surface));
+  color: color-mix(in srgb, var(--c, #8a8f99) 70%, var(--text));
   flex-shrink: 0;
 }
 .avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
 
-.profile-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-}
-.profile-title h2 { margin: 0; font-size: 1.3rem; }
-.profile-main p { margin: 0.3rem 0 0; }
-.profile-bio { font-size: 0.9rem; max-width: 60ch; }
+.profile-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.profile-title h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.profile-main p { margin: 4px 0 0; }
+.profile-bio { font-size: 14px; max-width: 60ch; }
 
 .type-pill {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(99, 102, 241, 0.15);
-  color: #a5b4fc;
+  font-size: 12px; font-weight: 500; line-height: 22px; padding: 0 8px; border-radius: 999px;
+  background: var(--pill-neutral-bg); color: var(--pill-neutral-ink);
 }
-.online-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  color: #4ade80;
-}
+.online-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--positive); }
 
-.chips {
-  list-style: none;
-  margin: 0.8rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-.chips li {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--muted);
-}
-.chips li.chip-on {
-  border-color: rgba(34, 197, 94, 0.4);
-  background: rgba(34, 197, 94, 0.1);
-  color: #4ade80;
-}
-.chips-soft li { background: rgba(255, 255, 255, 0.04); color: var(--text); }
+.chips { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.chips li { font-size: 12px; line-height: 22px; padding: 0 8px; border-radius: 999px; background: var(--raised); color: var(--muted); }
+.chips li.chip-on { background: var(--pill-positive-bg); color: var(--pill-positive-ink); }
+.chips-soft li { color: var(--text); }
 
-.profile-meta { margin: 0; display: grid; gap: 0.7rem; }
-.profile-meta div { display: flex; flex-direction: column; gap: 0.1rem; }
-.profile-meta dt { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.profile-meta dd { margin: 0; font-size: 0.9rem; word-break: break-word; }
+.profile-meta { margin: 0; display: grid; gap: 12px; }
+.profile-meta div { display: flex; flex-direction: column; gap: 2px; }
+.profile-meta dt { font-size: 12px; color: var(--muted); }
+.profile-meta dd { margin: 0; font-size: 14px; word-break: break-word; }
 
-.card-stack { display: flex; flex-direction: column; gap: 1.2rem; }
+.card-stack { display: flex; flex-direction: column; gap: var(--gap); }
 
-.status-summary {
-  list-style: none;
-  margin: 0 0 1rem;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-.status-summary li { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
+.status-summary { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 16px; }
+.status-summary li { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
 
-.rating { font-weight: 700; color: #facc15; }
-.list-note { margin: 0.8rem 0 0; }
+.rating { font-weight: 500; }
+.list-note { margin: 12px 0 0; }
 
 @media (max-width: 900px) {
   .profile-card { grid-template-columns: 1fr; }

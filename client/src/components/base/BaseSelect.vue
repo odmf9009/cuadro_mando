@@ -10,9 +10,6 @@
 </template>
 
 <script setup>
-// Select generico con v-model. options = [{ value, label }]. Pensado para
-// filtros (ej. tamaño de pagina, estado de suscripcion) reutilizable en
-// cualquier pagina sin repetir el markup/estilo del <select>.
 defineProps({
   modelValue: { type: [String, Number], default: '' },
   label: { type: String, default: '' },
@@ -22,24 +19,7 @@ defineEmits(['update:modelValue'])
 </script>
 
 <style scoped>
-.base-select {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-.base-select select {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.6rem 0.8rem;
-  color: var(--text);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.base-select select:focus {
-  outline: none;
-  border-color: var(--primary);
-}
+.base-select { display: flex; flex-direction: column; gap: 6px; }
+.base-select-label { font-size: 12px; color: var(--muted); }
+.base-select select { cursor: pointer; padding-right: 28px; }
 </style>

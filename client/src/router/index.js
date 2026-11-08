@@ -18,10 +18,12 @@ const routes = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
-  // Los enlaces con #ancla (ej. #usuarios) bajan suave hasta esa seccion.
+  // El hash elige la pestaña de la página del proyecto (#usuarios, #herramientas), no es un ancla:
+  // cambiar de pestaña no mueve la página; ir a otra pantalla vuelve arriba.
   scrollBehavior(to, from, saved) {
-    if (to.hash) return { el: to.hash, top: 12, behavior: 'smooth' }
-    return saved || { top: 0 }
+    if (saved) return saved
+    if (to.path === from.path) return false
+    return { top: 0 }
   },
 })
 

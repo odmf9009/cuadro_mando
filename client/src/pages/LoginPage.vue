@@ -1,10 +1,10 @@
 <template>
   <div class="login-body">
     <div class="login-card">
-      <div class="login-brand">
-        <span class="brand-dot"></span>
-        <span>Cuadro de Mando</span>
-      </div>
+      <h1 class="login-brand">
+        <BrandMark :size="36" />
+        <span>Cuadro de mando</span>
+      </h1>
       <p class="muted">Accede para ver las métricas de todos tus proyectos.</p>
 
       <AlertBanner v-if="error" type="error">{{ error }}</AlertBanner>
@@ -25,6 +25,7 @@ import { useAuthStore } from '../stores/auth'
 import BaseInput from '../components/base/BaseInput.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import AlertBanner from '../components/base/AlertBanner.vue'
+import BrandMark from '../components/base/BrandMark.vue'
 import { ApiError } from '../api/http'
 
 const username = ref('')

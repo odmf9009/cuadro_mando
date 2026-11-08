@@ -1,14 +1,15 @@
 <template>
-  <div class="panel">
-    <h2 v-if="title">{{ title }}</h2>
+  <section class="panel">
+    <div v-if="title || $slots.aside" class="panel-head">
+      <h2>{{ title }}</h2>
+      <slot name="aside" />
+    </div>
     <slot />
-  </div>
+  </section>
 </template>
 
 <script setup>
-// Contenedor "panel" generico (el mismo fondo/borde/radio que ya usaban las
-// tarjetas de detalle de proyecto). title es opcional: paneles como el
-// listado de usuarios no necesitan encabezado propio.
+// Superficie plana: fondo blanco/gris, borde de 1 px, sin sombra. "aside" = acción o dato a la derecha del título.
 defineProps({
   title: { type: String, default: '' },
 })

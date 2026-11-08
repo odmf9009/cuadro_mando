@@ -80,27 +80,29 @@ cd client && npm run build   # genera client/dist (Express lo sirve en producci�
 **Prioridad**: la estética nunca justifica romper las reglas de arriba. Sin cifras inventadas (Taste Skill también las
 prohíbe en pantallas de aplicación), con el origen visible en cada dato, y con los componentes base y los estados de carga.
 
-## Rediseño visual: PENDIENTE (no empezar sin la orden explícita del dueño)
+## Rediseño visual
 
-Objetivo: remodelar el cuadro de mando y el portafolio público (`../porfolio`, proyecto hermano) para que sean lo más
-modernos posible y **responsive a cualquier pantalla** (móvil 320–430, tablet 768, portátil 1024–1440, grande 1920+; sin scroll
-horizontal; objetivos táctiles ≥ 44 px; respetar `prefers-reduced-motion`).
+**Portafolio público (`../porfolio`) — HECHO y desplegado el 2026-11-08** (commit `f3cec66`, https://github.com/odmf9009/porfolio, público;
+nunca subir `.env`, claves ni `public/uploads/`). Ahora es Vue 3 + Vite (`porfolio/client/`) servido por el mismo Express, que conserva API,
+`/admin` (EJS), Mongo y subidas. El dueño descartó las 3 direcciones de Taste y eligió **evolucionar el aspecto que ya tenía** (azul marino,
+naranja, tarjetas con carrusel + visor ampliado) con aparición al scroll y parallax. Reglas de tiendas por app (App Store / Google Play /
+APK solo si el archivo responde + aviso «muy pronto en Google Play»), estructura, contratos y despliegue están en `porfolio/CLAUDE.md` y
+`porfolio/ARCHITECTURE.md`. Despliegue: `git pull origin main && (cd client && npm install && npm run build) && pm2 restart porfolio`.
+El sitio ya es indexable (robots/sitemap/Open Graph; `/admin` con `X-Robots-Tag: noindex`). El correo público es `support@krbusinessventures.org` (buzón existente en Hostinger). APK subidos: FixRadar y SkillFix; CurbRadar compilado pero sin subir hasta que el dueño confirme (su carpeta tiene cambios sin commit). Search Console es cosa del dueño.
 
-- **Punto de partida del panel**: el sidebar es fijo (`.sidebar { width: 250px }`) y `style.css` no tiene ninguna media query de
-  ancho (solo `prefers-reduced-motion`; la única otra es la de la ficha de usuario), así que hoy no es usable en móvil.
-- **El portafolio (`mios/porfolio`) ya tiene git**: https://github.com/odmf9009/porfolio (público; nunca subir `.env`, claves ni
-  imágenes de `public/uploads/`). El servidor (`/var/www/porfolio`, pm2 `porfolio`) es una copia de ese repositorio: se despliega con
-  `git pull origin main && npm install (si cambió package.json) && pm2 restart porfolio`. Su contenido (proyectos, textos,
-  capturas) vive en MongoDB y en `public/uploads/` (fuera de git); el rediseño no debe borrar datos. Antes de cualquier cambio
-  grande hay copia en `/root/backups/` del servidor.
-- **Estado del portafolio actual (2026-11-08)**: Express + EJS + Mongo, panel en `/admin`, textos editables (`Content`) y proyectos
-  (`Project`, con `storeLinks`/`directDownload`). Se arregló un fallo de `script.js` que dejaba invisible todo el contenido.
-  Lleva `<meta robots noindex>` (decisión pendiente del dueño) y el usuario `admin` del panel tenía una contraseña de ejemplo.
-- **Rediseño del portafolio**: el dueño pidió **Vue 3 + Vite** (proyecto Node solo para compilar; en producción lo sirve el Express
-  existente, que conserva API, admin, Mongo y subidas) y las skills de diseño. Capturas reales de App Store Connect ya revisadas
-  (se descartan las que muestran caras, direcciones o miniaturas de terceros).
-- Flujo: skill → 2–3 direcciones para elegir → implementar → verificar con Playwright en todos los anchos → documentar en
-  `ARCHITECTURE.md` → mostrárselo al dueño ANTES de desplegar.
+**Cuadro de mando — REDISEÑADO el 2026-11-08 (en local, pendiente de visto bueno del dueño y despliegue)**: estilo «libro de cuentas»
+(skill `design-taste-frontend --app`; hoja de dirección en `.taste-skill/app/direction.json`), claro y oscuro, Geist autoalojada,
+sin color en el marco y un solo tono de dato. Resumen = comparativa de apps agrupada por ORIGEN; ficha de app con pestañas
+(Resumen / Usuarios / Herramientas) y «Fuentes de esta app»; móvil con barra superior plegable. Detalle en `ARCHITECTURE.md` §8–§10.
+Medido con `inspect.mjs --app`: 0 FAIL; WARN defendidos: `no-data-hue` (la serie es una línea de 2 px casi plana, su pixel-share es mínimo)
+y `ragged-row` en las tarjetas por origen (tres orígenes de contenido muy desigual; se reparten en dos columnas con la menor diferencia
+posible en vez de estirar tarjetas con huecos). Sin desbordes de 320 a 1920 px. Antes de desplegar: mostrarlo al dueño en local
+(`npm run build` en `client/` y `node src/server.js`; o `npm run dev:client` con `dev:api`).
+
+- Flujo para cualquier rediseño: skill → implementar → verificar con Playwright en todos los anchos (mide el ancho real de la
+  ventana; un viewport emulado mayor que la ventana recorta la página) → documentar en `ARCHITECTURE.md` → mostrárselo al dueño en local
+  ANTES de desplegar. Para inspeccionar pantallas con sesión, un proxy local que añada la cookie de una sesión de desarrollo permite
+  usar `inspect.mjs` (que no sabe iniciar sesión).
 
 ## Despliegue (servidor propio, PM2)
 

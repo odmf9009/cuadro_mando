@@ -49,12 +49,12 @@ async function onUpload() {
   result.value = null
   try {
     const res = await props.upload(file.value)
-    result.value = { type: 'ok', message: `✅ ${res.message}` }
+    result.value = { type: 'ok', message: res.message }
     file.value = null
     if (fileEl.value) fileEl.value.value = ''
     emit('imported')
   } catch (err) {
-    result.value = { type: 'error', message: `⚠ ${err.message}` }
+    result.value = { type: 'error', message: err.message }
   } finally {
     uploading.value = false
   }
@@ -66,7 +66,8 @@ async function onUpload() {
 .report-import-main { display: flex; align-items: flex-end; gap: 0.8rem; flex-wrap: wrap; }
 .report-import-label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; color: var(--muted); }
 .report-import-title { font-weight: 600; color: var(--text); }
-.report-import input[type='file'] { color: var(--muted); font-size: 0.85rem; }
+.report-import input[type='file'] { color: var(--muted); font-size: 13px; max-width: 100%; }
+.report-import-label { min-width: 0; max-width: 100%; }
 .report-import-hint { margin: 0.4rem 0 0; }
 .report-import-result { margin-top: 0.6rem; }
 </style>

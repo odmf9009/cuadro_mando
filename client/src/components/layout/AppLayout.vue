@@ -1,8 +1,12 @@
 <template>
   <div class="layout">
     <Sidebar />
+    <MobileBar :title="heading" />
     <main class="content">
-      <Topbar :heading="heading" :subheading="subheading" :crumbs="crumbs" />
+      <Topbar :heading="heading" :subheading="subheading" :crumbs="crumbs">
+        <template v-if="$slots.mark" #mark><slot name="mark" /></template>
+        <template v-if="$slots.actions" #actions><slot name="actions" /></template>
+      </Topbar>
       <slot />
     </main>
   </div>
@@ -10,11 +14,12 @@
 
 <script setup>
 import Sidebar from './Sidebar.vue'
+import MobileBar from './MobileBar.vue'
 import Topbar from './Topbar.vue'
 
-// Envoltorio comun a todas las paginas autenticadas (sidebar + topbar +
-// contenido). Cada pagina solo aporta su titulo/subtitulo y el cuerpo via
-// slot default -> evita repetir la estructura .layout/.content en cada una.
+// Envoltorio común de todas las páginas autenticadas: barra lateral (o barra superior plegada en
+// móvil), encabezado y contenido por slot. Cada página solo aporta título, línea de contexto,
+// migas y, si hacen falta, acciones reales (slot "actions").
 defineProps({
   heading: { type: String, default: '' },
   subheading: { type: String, default: '' },

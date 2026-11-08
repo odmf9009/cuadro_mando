@@ -1,45 +1,43 @@
 <template>
   <section id="usuarios" class="users-section">
-    <header class="section-head">
-      <h2 class="section-title">Usuarios</h2>
-      <span v-if="!loading" class="muted small">{{ total.toLocaleString('es') }} en total</span>
-      <SkeletonBlock v-else width="90px" height="0.8rem" />
-    </header>
-
     <AlertBanner v-if="connectionError" type="error">
-      ⚠ No se pudo conectar a este proyecto: {{ connectionError }}
+      No se pudo conectar a este proyecto: {{ connectionError }}
       <p class="muted small">Revisa la variable de entorno de este proyecto en tu archivo .env.</p>
     </AlertBanner>
 
     <AlertBanner v-else-if="actionResult" :type="actionResult.type">
-      <template v-if="actionResult.type === 'ok' && actionResult.mode === 'sent'">✅ Correo de reseteo enviado.</template>
+      <template v-if="actionResult.type === 'ok' && actionResult.mode === 'sent'">Correo de reseteo enviado.</template>
 
       <template v-else-if="actionResult.type === 'ok' && actionResult.mode === 'link'">
-        ✅ Link generado (no hay SMTP configurado, así que no se envió solo). Cópialo y mándalo tú:
+        Enlace generado (no hay SMTP configurado, así que no se envió solo). Cópialo y mándalo tú:
         <div class="link-box"><code>{{ actionResult.link }}</code></div>
       </template>
 
       <template v-else-if="actionResult.type === 'ok' && actionResult.mode === 'temp-password'">
-        ✅ Contraseña temporal generada para <strong>{{ actionResult.email || 'el usuario' }}</strong>. Solo se muestra esta vez, no queda guardada en ningún lado:
+        Contraseña temporal generada para <strong>{{ actionResult.email || 'el usuario' }}</strong>. Solo se muestra esta vez, no queda guardada en ningún lado:
         <div class="link-box"><code>{{ actionResult.password }}</code></div>
         <p class="muted small">Ya está activa: el usuario puede entrar a la app ahora mismo con esta contraseña. Pásasela por un canal seguro.</p>
       </template>
 
-      <template v-else>⚠ {{ actionResult.error }}</template>
+      <template v-else>{{ actionResult.error }}</template>
     </AlertBanner>
 
     <template v-if="!connectionError">
       <div v-if="activeSegmentLabel" class="segment-chip">
-        Mostrando: <strong>{{ activeSegmentLabel }}</strong>
-        <RouterLink :to="{ path: `/project/${project.id}`, hash: '#usuarios' }" class="segment-chip-clear">✕ quitar filtro</RouterLink>
+        Filtro: <strong>{{ activeSegmentLabel }}</strong>
+        <RouterLink :to="{ path: `/project/${project.id}`, hash: '#usuarios' }" class="segment-chip-clear">Quitar filtro</RouterLink>
       </div>
 
-      <form class="users-search" @submit.prevent="load(1)">
-        <BaseInput v-model="search" placeholder="Buscar por nombre o email..." />
-        <button v-if="search" type="button" class="users-search-clear" aria-label="Borrar búsqueda" @click="search = ''">✕</button>
-      </form>
-
+      <div class="users-toolbar">
+        <form class="users-search" role="search" @submit.prevent="load(1)">
+          <AppIcon name="search" class="users-search-icon" />
+          <input v-model="search" class="field-input" type="search" placeholder="Buscar por nombre o email" aria-label="Buscar usuarios" />
+        </form>
+        <span v-if="!loading" class="muted small">{{ total.toLocaleString('es') }} en total</span>
+        <SkeletonBlock v-else width="90px" height="0.8rem" />
+      </div>
       <BaseCard>
+        <div class="table-scroll">
         <BaseTable
           :columns="columns"
           :rows="users"
@@ -84,6 +82,7 @@
             <span v-else-if="project.hasPasswordReset" class="muted small">No soportado</span>
           </template>
         </BaseTable>
+        </div>
 
         <Pagination :page="page" :total-pages="totalPages" @update:page="load" />
       </BaseCard>
@@ -96,11 +95,11 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BaseCard from './base/BaseCard.vue'
 import BaseTable from './base/BaseTable.vue'
-import BaseInput from './base/BaseInput.vue'
 import BaseButton from './base/BaseButton.vue'
 import Pagination from './base/Pagination.vue'
 import AlertBanner from './base/AlertBanner.vue'
 import SkeletonBlock from './base/SkeletonBlock.vue'
+import AppIcon from './base/AppIcon.vue'
 import { projectsApi } from '../api/projects'
 import { useConfirm } from '../composables/useConfirm'
 import { useDebounceFn } from '../composables/useDebounce'
@@ -212,34 +211,12 @@ watch(() => route.query.segment, () => load(1))
 </script>
 
 <style scoped>
-.users-section { margin-top: 2.2rem; scroll-margin-top: 1rem; }
-
-.section-head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
-}
-.section-title { margin: 0; font-size: 1.15rem; }
-
-.users-search {
-  position: relative;
-  max-width: 420px;
-  margin-bottom: 1.2rem;
-}
-.users-search-clear {
-  position: absolute;
-  right: 0.5rem;
-  bottom: 0.45rem;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.9rem;
-  padding: 0.25rem 0.45rem;
-}
-.users-search-clear:hover { color: var(--text); }
-
-.activity-cell { display: flex; flex-direction: column; white-space: nowrap; }
-.activity-main { font-weight: 700; }
+.users-section { scroll-margin-top: 16px; }
+.users-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: var(--gap); flex-wrap: wrap; }
+.users-search { position: relative; flex: 1; max-width: 360px; min-width: 220px; }
+.users-search .field-input { padding-left: 34px; }
+.users-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); pointer-events: none; }
+.activity-cell { display: flex; flex-direction: column; white-space: nowrap; line-height: 1.35; }
+.activity-main { font-weight: 500; }
+.table-scroll :deep(.data-table) { min-width: 680px; }
 </style>

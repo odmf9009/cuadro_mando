@@ -75,7 +75,6 @@ cuadro_mando/
     ├── components/
     │   ├── base/                      # genéricos, sin lógica de negocio (ver §8.1)
     │   ├── layout/ (AppLayout, Sidebar, Topbar)
-    │   ├── ProjectCard.vue            # tarjeta del resumen general
     │   ├── StoreCard.vue              # tarjeta de UN origen (Apple / Google / propios)
     │   ├── ProjectUsers.vue           # listado de usuarios de un proyecto (buscador, segmentos, acciones)
     │   └── RequestStatusBadge.vue     # estados de una incidencia de FixRadar
@@ -226,52 +225,66 @@ no entra en totales globales.
 
 | Componente | Para qué |
 |---|---|
-| `BaseButton`, `BaseInput`, `BaseSelect` | Formularios |
-| `BaseCard` | Panel (`title?`) |
-| `BaseTable` | `columns`, `rows`, `rowKey`, `clickable` (emite `row-click`), `loading` + `skeletonRows`; slots `#cell-<key>` y `#actions` (el slot de acciones no dispara el clic de fila) |
+| `BaseButton`, `BaseInput`, `BaseSelect` | Formularios (un alto de control, 6 px de radio; un solo relleno casi negro por pantalla) |
+| `BaseCard` | Superficie plana (`title?`, slot `#aside` a la derecha del título) |
+| `BaseTable` | `columns`, `rows`, `rowKey`, `clickable` (emite `row-click`), `loading` + `skeletonRows`; slots `#cell-<key>` y `#actions` |
 | `Pagination` | `page`, `totalPages` → `update:page` |
-| `StatCard` | KPI; `loading`, `to` (RouterLink), `live` |
-| `StatusBadge` (binario) · `StatusChip` (`tone`: ok/pending/neutral/error) | Estados |
-| `SourceTag` | Etiqueta de origen (`kind`: apple/google/web/firebase/db, `label?`) |
-| `MetricRow` | Fila etiqueta → valor con `state`, `source`, `hint`, `tag`, `details`, `note`, `reason`, `series` (barras) |
-| `Breadcrumbs` | `items:[{label,to?}]`; un item sin label pinta un bloque de carga |
-| `SkeletonBlock`, `SkeletonLines` | Estados de carga |
-| `MiniBars` | Barras pequeñas de una evolución corta (`items:[{label,value}]`, `value:null` = sin dato); la usa `MetricRow` vía `series` |
-| `AlertBanner`, `BreakdownList`, `LiveDot`, `LineChart` (alto fijo `height`) | Utilidades |
+| `StatCard` | Celda de KPI dentro de un `.kpi-row` partido por líneas finas: `label`, `value`, `unit`, `sub`, `loading`, `to`, `live`; cero en gris, ausente = guion |
+| `StatusBadge` (conectada / sin conexión) · `StatusChip` (`tone`: ok/pending/neutral/error) | Estados con pares pálidos |
+| `SourceTag` | Etiqueta de ORIGEN neutra (`kind`: apple/google/web/firebase/db, `label?`) |
+| `MetricRow` | Fila etiqueta → valor con `state`, `source`, `hint`, `tag`, `details`, `note`, `reason`, `series` |
+| `MetricCell` | Celda de tabla con los cuatro estados honestos: `loading` (bloque), `na` (guion + motivo en tooltip), `pending`, `ok` |
+| `TabNav` | Pestañas con subrayado: `tabs:[{value,label,count?}]`, `v-model` |
+| `BarList` | Ranking horizontal con barra fina (la mayor, en el tono de dato) |
+| `AppMark` · `BrandMark` · `AppIcon` | Identidad de una app (inicial sobre tinte pálido de SU color), monograma V/FL del estudio y juego de iconos de contorno |
+| `ThemeToggle` | Auto / Claro / Oscuro (`composables/useTheme.js`) |
+| `Breadcrumbs`, `SkeletonBlock`, `SkeletonLines`, `AlertBanner`, `LiveDot` | Navegación, carga y avisos |
+| `LineChart`, `MiniBars` | Gráficos Chart.js al estilo del panel: un solo tono, líneas rectas, barras de esquina recta, colores leídos del tema (`composables/chartTheme.js`) |
 
 ### 8.2 Compuestos y layout
 
-`StoreCard` (presentación pura de una sección), `ReportImport` (subir un archivo a mano con resultado y recarga), `ProjectUsers` (listado completo de usuarios, reutilizable para cualquier
-proyecto con usuarios), `ProjectCard`, `RequestStatusBadge`; `AppLayout` (props `heading`, `subheading`, `crumbs`),
-`Sidebar` (con esqueleto mientras carga el registro), `Topbar` (migas + título).
+`AppsTable` (comparativa de apps agrupada por origen), `AppleStatus`, `SourcesCard` (mapa de fuentes de una app),
+`StoreCard` (una sección por origen), `ReportImport`, `ProjectUsers`, `RequestStatusBadge`.
+Layout: `AppLayout` (props `heading`, `subheading`, `crumbs`; slots `#actions` y `#mark`), `Sidebar` (sobre el fondo, sin color),
+`SidebarNav`/`SidebarFoot` (compartidos con la hoja del móvil), `MobileBar` (barra de 52 px + hoja de navegación), `Topbar` (cabecera de página).
 
-### 8.3 Páginas
+### 8.3 Páginas y composables
 
-- `OverviewPage`: KPIs globales + `ProjectCard` por proyecto.
-- `ProjectDetailPage`: migas → KPIs de usuarios y segmentos (cada uno filtra la lista) → `StoreCard`s por origen → gráfico
-  de altas y distribución de APK → `ProjectUsers` (`#usuarios`).
-- `UserDetailPage`: ficha (solo proyectos con `userActivity`): perfil, incidencias publicadas y trabajos realizados.
-- `LoginPage`, `NotFoundPage`.
+- `OverviewPage` ("Resumen"): cifras globales (`.kpi-row`) → `AppsTable` → altas por día de todas las apps + ranking por app.
+  La lógica vive en `composables/useOverview.js`: une el registro, `/api/overview` y `/api/projects/:id/store-stats`
+  (APIs externas, de tres en tres, cada fila se rellena al llegar la suya).
+- `ProjectDetailPage`: cabecera con `AppMark` + pestañas ligadas al hash (`#usuarios`, `#herramientas`; sin hash = Resumen):
+  *Resumen* (KPIs de usuarios y segmentos, altas por día, `SourcesCard`, tarjetas por origen en dos columnas equilibradas),
+  *Usuarios* (`ProjectUsers`), *Herramientas* (importar ganancias de Google, distribución de APK).
+- `UserDetailPage`: ficha (solo proyectos con `userActivity`). `LoginPage`, `NotFoundPage`.
 
 ## 9. Patrones de diseño aplicados
 
 1. **Config-driven**: capacidades por proyecto en `projects.js`; el código es genérico.
 2. **Conectores aislados + contrato normalizado**: cada fuente se traduce a la forma de §5.2/§5.3; la UI no sabe de dónde viene.
-3. **Separación datos → presentación**: `useProjectSections` (lógica) → `StoreCard`/`MetricRow` (pintura).
+3. **Separación datos → presentación**: `useProjectSections` y `useOverview` (lógica) → `StoreCard`/`MetricRow`/`AppsTable` (pintura).
 4. **Base components sin dominio**: `base/` nunca importa stores ni API.
 5. **Carga progresiva (skeleton + reveal)**: la estructura aparece al instante con bloques que brillan (`.skeleton`) y cada
-   bloque "se enfoca" (`.reveal`) al llegar sus datos. Cada fuente se pide por separado con guarda `loadToken` contra
+   bloque "se enfoca" (`.reveal`) al llegar sus datos. Cada fuente se pide por separado con guarda `token` contra
    respuestas obsoletas. Nunca se muestra un estado falso ("Desconectado", "No encontrado") mientras carga.
-6. **Degradación honesta**: ante falta de datos/credenciales, `unavailable`/`pending` con motivo; nunca un error que tumbe la página.
+6. **Degradación honesta**: ante falta de datos/credenciales, `na`/`pending` con motivo (guion gris + tooltip); un cero real se imprime.
 7. **Privacidad por defecto**: proyecciones/listas blancas; no se leen subcolecciones financieras; no se exponen variables
    de entorno ni identificadores internos.
-8. **Navegación**: migas en toda página, enlaces con `#ancla`, una sola página de proyecto con todo.
+8. **Navegación**: migas en toda página; destinos = otras pantallas (el hash solo elige la pestaña de la ficha de app).
+9. **El origen de cada cifra siempre visible**: `SourceTag` en cada fila (`MetricRow`), en cada grupo de columnas de `AppsTable` y en cada gráfico.
 
-## 10. Estilos
+## 10. Estilos y tema
 
-`client/src/style.css`: variables en `:root` (`--bg --card --border --text --muted --primary --danger --ok`) y clases
-compartidas (`.kpi-card`, `.panel`, `.data-table`, `.store-grid`, `.skeleton`, `.reveal`...). Lo muy propio de un componente va
-en `<style scoped>`. `prefers-reduced-motion` desactiva las animaciones de carga.
+`client/src/style.css` es el sistema de diseño (estilo "libro de cuentas" de la skill `design-taste-frontend`, ver `.taste-skill/app/direction.json`):
+- **Sin color en el marco**: barra lateral sobre el fondo, bordes de 1 px, botón principal casi negro. **Un solo tono de dato** (`--chart`) en la serie
+  principal de cada gráfico y en la barra mayor de los rankings; el estado usa pares pálidos (verde/rojo/ámbar) y nunca rellenos saturados.
+- **Claro y oscuro** con los mismos nombres de variable (`:root[data-theme='dark']`, o preferencia del sistema si no hay elección). Grises
+  neutros reales, sin azul marino. El tema elegido se guarda en `localStorage`; los gráficos se redibujan al cambiar (`theme-change`).
+- Tipografía **Geist** variable autoalojada (`@fontsource-variable/geist`; no hay peticiones a terceros), cifras tabulares en todo el panel.
+- Una sola separación (`--gap`: 12 px) en horizontal y vertical; superficies planas, sin sombras en reposo; radios 8/6.
+- Excepción documentada: el brillo del skeleton (`.skeleton`, un degradado) lo exige el dueño (carga con brillo y desenfoque).
+- Móvil: la barra lateral se pliega en `MobileBar` (52 px) con hoja de navegación; KPI en 2 columnas; la tabla de apps pasa a filas de dos
+  líneas; objetivos táctiles ≥ 44 px. `prefers-reduced-motion` desactiva las animaciones de carga.
 
 ## 11. Despliegue
 
