@@ -90,14 +90,14 @@ APK solo si el archivo responde + aviso «muy pronto en Google Play»), estructu
 `porfolio/ARCHITECTURE.md`. Despliegue: `git pull origin main && (cd client && npm install && npm run build) && pm2 restart porfolio`.
 El sitio ya es indexable (robots/sitemap/Open Graph; `/admin` con `X-Robots-Tag: noindex`). El correo público es `support@krbusinessventures.org` (buzón existente en Hostinger). APK subidos: FixRadar y SkillFix; CurbRadar compilado pero sin subir hasta que el dueño confirme (su carpeta tiene cambios sin commit). Search Console es cosa del dueño.
 
-**Cuadro de mando — REDISEÑADO el 2026-11-08 (en local, pendiente de visto bueno del dueño y despliegue)**: estilo «libro de cuentas»
+**Cuadro de mando — REDISEÑADO y DESPLEGADO el 2026-11-08 (commit `b86de55`; copia previa de la versión anterior en `/root/backups/cuadro_mando-dist-pre-rediseno-*.tgz` del servidor)**: estilo «libro de cuentas»
 (skill `design-taste-frontend --app`; hoja de dirección en `.taste-skill/app/direction.json`), claro y oscuro, Geist autoalojada,
 sin color en el marco y un solo tono de dato. Resumen = comparativa de apps agrupada por ORIGEN; ficha de app con pestañas
 (Resumen / Usuarios / Herramientas) y «Fuentes de esta app»; móvil con barra superior plegable. Detalle en `ARCHITECTURE.md` §8–§10.
 Medido con `inspect.mjs --app`: 0 FAIL; WARN defendidos: `no-data-hue` (la serie es una línea de 2 px casi plana, su pixel-share es mínimo)
 y `ragged-row` en las tarjetas por origen (tres orígenes de contenido muy desigual; se reparten en dos columnas con la menor diferencia
-posible en vez de estirar tarjetas con huecos). Sin desbordes de 320 a 1920 px. Antes de desplegar: mostrarlo al dueño en local
-(`npm run build` en `client/` y `node src/server.js`; o `npm run dev:client` con `dev:api`).
+posible en vez de estirar tarjetas con huecos). Sin desbordes de 320 a 1920 px. Para volver a la versión anterior: restaurar ese
+`dist` en `/var/www/cuadro_mando/client/` y `pm2 restart cuadro-mando`. Las pantallas con sesión no se pueden revisar desde fuera sin la contraseña: las verifica el dueño.
 
 - Flujo para cualquier rediseño: skill → implementar → verificar con Playwright en todos los anchos (mide el ancho real de la
   ventana; un viewport emulado mayor que la ventana recorta la página) → documentar en `ARCHITECTURE.md` → mostrárselo al dueño en local
